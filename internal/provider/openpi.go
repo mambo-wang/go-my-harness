@@ -1,5 +1,5 @@
-// MiniMax OpenAI Compatible Provider
-// 基于 OpenAI V3 SDK，指向 MiniMax OpenAI 兼容端点
+// DeepSeek OpenAI Compatible Provider
+// 基于 OpenAI V3 SDK，指向 DeepSeek OpenAI 兼容端点
 package provider
 
 import (
@@ -113,7 +113,7 @@ func (p *OpenAIProvider) Generate(ctx context.Context, msgs []schema.Message, av
 
     resp, err := p.client.Chat.Completions.New(ctx, params)
     if err != nil {
-        return nil, fmt.Errorf("OpenAI/MiniMax API 请求失败: %w", err)
+        return nil, fmt.Errorf("OpenAI/DeepSeek API 请求失败: %w", err)
     }
     if len(resp.Choices) == 0 {
         return nil, fmt.Errorf("API 返回了空的 Choices")
