@@ -12,7 +12,7 @@ import (
     "os"                                             // 标准库
 
     "github.com/anthropics/anthropic-sdk-go"         // 第三方库
-    "github.com/wandering-bug/go-my-harness/internal/schema"  // 自定义内部包
+    "github.com/mambo-wang/go-my-harness/internal/schema"  // 自定义内部包
 )
 ```
 

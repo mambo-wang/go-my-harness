@@ -10,7 +10,7 @@ import (
     "github.com/openai/openai-go/v3"
     "github.com/openai/openai-go/v3/option"
     "github.com/openai/openai-go/v3/shared"
-    "github.com/wandering-bug/go-my-harness/internal/schema"
+    "github.com/mambo-wang/go-my-harness/internal/schema"
 )
 
 type OpenAIProvider struct {

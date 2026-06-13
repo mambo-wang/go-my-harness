@@ -12,10 +12,10 @@ import (
     "strings"
     "syscall"
 
-    "github.com/wandering-bug/go-my-harness/internal/engine"
-    "github.com/wandering-bug/go-my-harness/internal/feishu"
-    "github.com/wandering-bug/go-my-harness/internal/provider"
-    "github.com/wandering-bug/go-my-harness/internal/tools"
+    "github.com/mambo-wang/go-my-harness/internal/engine"
+    "github.com/mambo-wang/go-my-harness/internal/feishu"
+    "github.com/mambo-wang/go-my-harness/internal/provider"
+    "github.com/mambo-wang/go-my-harness/internal/tools"
 )
 
 func main() {
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// 终端交互模式：始终启动
-	fmt.Println("🖥️  Go Tiny Claw 终端模式 (输入 exit 或 quit 退出)")
+	fmt.Println("🖥️  Go My Harness终端模式 (输入 exit 或 quit 退出)")
 	fmt.Println("─────────────────────────────────────────────────")
 
 	reporter := engine.NewTerminalReporter()

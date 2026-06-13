@@ -2,7 +2,7 @@ package provider
 
 import (
     "context"
-    "github.com/wandering-bug/go-my-harness/internal/schema"
+    "github.com/mambo-wang/go-my-harness/internal/schema"
 )
 
 // LLMProvider 定义了与大模型通信的统一契约

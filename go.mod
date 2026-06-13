@@ -1,4 +1,4 @@
-module github.com/wandering-bug/go-my-harness
+module github.com/mambo-wang/go-my-harness
 
 go 1.26.1
 

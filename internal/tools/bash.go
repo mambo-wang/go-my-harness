@@ -9,7 +9,7 @@ import (
     "time"
 	"runtime"
 
-    "github.com/wandering-bug/go-my-harness/internal/schema"
+    "github.com/mambo-wang/go-my-harness/internal/schema"
 )
 
 type BashTool struct {

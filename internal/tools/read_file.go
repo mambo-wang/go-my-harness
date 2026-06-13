@@ -9,7 +9,7 @@ import (
     "os"
     "path/filepath"
 
-    "github.com/wandering-bug/go-my-harness/internal/schema"
+    "github.com/mambo-wang/go-my-harness/internal/schema"
 )
 
 // ReadFileTool 实现了读取本地文件内容的工具

@@ -5,9 +5,9 @@ import (
     "fmt"
     "log"
     "sync"
-    "github.com/wandering-bug/go-my-harness/internal/provider"
-    "github.com/wandering-bug/go-my-harness/internal/schema"
-    "github.com/wandering-bug/go-my-harness/internal/tools"
+    "github.com/mambo-wang/go-my-harness/internal/provider"
+    "github.com/mambo-wang/go-my-harness/internal/schema"
+    "github.com/mambo-wang/go-my-harness/internal/tools"
 )
 
 type AgentEngine struct {

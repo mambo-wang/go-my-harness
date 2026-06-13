@@ -11,8 +11,8 @@ import (
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	"github.com/larksuite/oapi-sdk-go/v3/ws"
-	"github.com/wandering-bug/go-my-harness/internal/engine"
-	"github.com/wandering-bug/go-my-harness/internal/provider"
+	"github.com/mambo-wang/go-my-harness/internal/engine"
+	"github.com/mambo-wang/go-my-harness/internal/provider"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"

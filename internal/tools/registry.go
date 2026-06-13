@@ -7,7 +7,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/wandering-bug/go-my-harness/internal/schema"
+    "github.com/mambo-wang/go-my-harness/internal/schema"
 )
 
 // BaseTool 是所有具体工具必须实现的通用接口

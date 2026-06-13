@@ -8,7 +8,7 @@ import (
     "os"
     "path/filepath"
 
-    "github.com/wandering-bug/go-my-harness/internal/schema"
+    "github.com/mambo-wang/go-my-harness/internal/schema"
 )
 
 type WriteFileTool struct {
