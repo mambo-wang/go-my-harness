@@ -8,6 +8,7 @@ import (
     "github.com/mambo-wang/go-my-harness/internal/provider"
     "github.com/mambo-wang/go-my-harness/internal/schema"
     "github.com/mambo-wang/go-my-harness/internal/tools"
+    ctxpkg "github.com/mambo-wang/go-my-harness/internal/context"
 )
 
 type AgentEngine struct {
@@ -15,6 +16,7 @@ type AgentEngine struct {
     registry tools.Registry // 工具注册表
     WorkDir  string // 工作目录
     EnableThinking bool //慢思考模式开关
+    composer       *ctxpkg.PromptComposer // 【新增】引擎持有 Composer 实例
 }
 
 func NewAgentEngine(p provider.LLMProvider, r tools.Registry, workDir string, enableThinking bool) *AgentEngine { 
@@ -23,6 +25,7 @@ func NewAgentEngine(p provider.LLMProvider, r tools.Registry, workDir string, en
         registry: r, 
         WorkDir: workDir,
         EnableThinking: enableThinking, 
+        composer:       ctxpkg.NewPromptComposer(workDir), // 初始化组装器
     }
 }
 
@@ -30,9 +33,12 @@ func NewAgentEngine(p provider.LLMProvider, r tools.Registry, workDir string, en
 func (e *AgentEngine) Run(ctx context.Context, userPrompt string, reporter Reporter) error {
     log.Printf("[Engine] 引擎启动，锁定工作区: %s\n", e.WorkDir)
 
-    contextHistory := []schema.Message{
-        {Role: schema.RoleSystem, Content: "You are go-my-harness, an expert coding assistant."},
-        {Role: schema.RoleUser, Content: userPrompt},
+    // 【核心修改】动态组装 System Prompt，彻底替换掉以前硬编码的面条提示词！    
+    systemMsg := e.composer.Build()
+
+    contextHistory := []schema.Message{        
+        systemMsg, // 注入动态组装的内核、AGENTS.md 与 Skills        
+        {Role: schema.RoleUser, Content: userPrompt},    
     }
 
     turnCount := 0

@@ -2,14 +2,12 @@
 package main
 
 import (
-    "bufio"
     "context"
     "fmt"
     "log"
     "os"
     "os/signal"
     "path/filepath"
-    "strings"
     "syscall"
 
     "github.com/mambo-wang/go-my-harness/internal/engine"
@@ -20,10 +18,11 @@ import (
 
 func main() {
     // 1. 获取工作区物理边界
-    workDir, _ := os.Getwd()
+    project_root, _ := os.Getwd()
+	workDir := filepath.Join(project_root, "workspace")
 
     // 2. 从 config.json 配置文件读取应用配置
-    configPath := filepath.Join(workDir, "config.json")
+	configPath := filepath.Join(project_root, "config.json")
     cfg, err := provider.LoadConfig(configPath)
     if err != nil {
         log.Fatalf("加载配置文件失败: %v", err)
@@ -65,67 +64,22 @@ func main() {
 		bot := feishu.NewFeishuBot(eng, cfg.Feishu)
 		go func() {
 			log.Println("🚀 飞书 WebSocket 长连接模式启动...")
-			if err := bot.StartWebSocket(ctx); err != nil {
-				log.Printf("❌ WebSocket 连接失败: %v\n", err)
+			if errfeishu := bot.StartWebSocket(ctx); errfeishu != nil {
+				log.Printf("❌ WebSocket 连接失败: %v\n", errfeishu)
 			}
 		}()
 	}
 
-	// 终端交互模式：始终启动
-	fmt.Println("🖥️  Go My Harness终端模式 (输入 exit 或 quit 退出)")
-	fmt.Println("─────────────────────────────────────────────────")
+    // 【注入新实现的终端输出器】
+    reporter := engine.NewTerminalReporter()
 
-	reporter := engine.NewTerminalReporter()
-	scanner := bufio.NewScanner(os.Stdin)
+    prompt := `
+    我需要在当前目录下新建一个 ping.go，提供一个简单的 http ping 接口。
+    写完之后，帮我把代码用 git 提交一下。
+    `
 
-	for {
-		fmt.Print("\n> ")
-
-		inputCh := make(chan string, 1)
-		go func() {
-			if scanner.Scan() {
-				inputCh <- scanner.Text()
-			} else {
-				inputCh <- ""
-			}
-		}()
-
-		select {
-		case <-sigChan:
-			fmt.Println("\n📴 再见！")
-			cancel()
-			return
-		case input := <-inputCh:
-			input = strings.TrimSpace(input)
-			if input == "" {
-				continue
-			}
-			if input == "exit" || input == "quit" {
-				fmt.Println("📴 再见！")
-				cancel()
-				return
-			}
-
-			runCtx, runCancel := context.WithCancel(ctx)
-			done := make(chan struct{})
-
-			go func() {
-				defer close(done)
-				if err := eng.Run(runCtx, input, reporter); err != nil && runCtx.Err() == nil {
-					log.Printf("❌ Agent 运行失败: %v\n", err)
-				}
-			}()
-
-			select {
-			case <-done:
-				runCancel()
-			case <-sigChan:
-				runCancel()
-				<-done
-				fmt.Println("\n📴 再见！")
-				cancel()
-				return
-			}
-		}
-	}
+    err = eng.Run(context.Background(), prompt, reporter)
+    if err != nil {
+        log.Fatalf("引擎运行崩溃: %v", err)
+    }
 }
