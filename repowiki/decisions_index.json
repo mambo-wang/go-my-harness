@@ -1,0 +1,48 @@
+{
+  "entries": [
+    {
+      "date": "2026-06-28",
+      "type": "decision",
+      "title": "ReAct 循环模式作为核心 Agent 架构",
+      "file": "notes/2026-06-28-react-循环模式作为核心-agent-架构.md",
+      "modules": [
+        "Engine",
+        "Tools"
+      ],
+      "tags": [
+        "decision",
+        "react",
+        "waitgroup"
+      ]
+    },
+    {
+      "date": "2026-06-28",
+      "type": "decision",
+      "title": "四层安全护栏设计",
+      "file": "notes/2026-06-28-四层安全护栏设计.md",
+      "modules": [
+        "Tools"
+      ],
+      "tags": [
+        "decision",
+        "editfiletool"
+      ]
+    },
+    {
+      "date": "2026-06-28",
+      "type": "decision",
+      "title": "双协议 LLM Provider 抽象层",
+      "file": "notes/2026-06-28-双协议-llm-provider-抽象层.md",
+      "modules": [
+        "Provider",
+        "Engine"
+      ],
+      "tags": [
+        "decision",
+        "deepseek",
+        "maxtokens",
+        "minimaxprovider"
+      ]
+    }
+  ]
+}

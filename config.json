@@ -2,7 +2,7 @@
   "default_model": "deepseek-v4-flash",
   "models": {
     "deepseek-v4-flash": {
-      "api_key": "sk-e465216764bd403f926ff81357f78c43",
+      "api_key": "sk-<KEY>",
       "base_url": "https://api.deepseek.com/v1/",
       "provider": "openai"
     }

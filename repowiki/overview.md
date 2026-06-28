@@ -1,154 +1,182 @@
-# go-my-harness 仓库总览
+# go-my-harness 项目总览
 
 ## 项目简介
 
-`go-my-harness` 是一个基于 Go 语言开发的 **AI Agent Harness 框架**。它实现了经典的 ReAct（Reasoning + Acting）循环，让大语言模型能够通过工具调用与物理世界交互——执行命令、读写文件、编辑代码。框架支持多 LLM 厂商（OpenAI/DeepSeek、Anthropic/MiniMax），并提供终端交互和飞书 IM 两种接入方式。
+**go-my-harness** 是一个基于 Go 语言构建的 AI Agent 框架，实现了经典的 **ReAct（Reasoning + Acting）** 循环模式。项目的核心理念是"驾驭工程"（Harness Engineering）——安全地控制和引导大语言模型（LLM）与真实世界交互，通过工具调用执行 Shell 命令、读写文件、编辑代码等操作。
 
-**技术栈**：Go 1.26 + OpenAI SDK v3 + Anthropic SDK + Lark SDK
+项目采用 Go 编写，追求极致性能与最小依赖。整个框架仅 20 个 Go 源文件，却实现了完整的 Agent 运行时，包括多模型支持、可插拔工具系统、双输出通道（终端 + 飞书 IM）和动态提示词组装。
 
 ## 端到端架构
 
 ```mermaid
 graph TD
-    subgraph 接入层
-        CLI[终端交互模式]
-        Feishu[飞书 WebSocket 模式]
+    subgraph Entry
+        A[main.go]
     end
 
-    subgraph 引擎层
-        Engine[AgentEngine 主循环]
-        Reporter[Reporter 接口]
+    subgraph Engine
+        B[AgentEngine]
+        C[Reporter]
     end
 
-    subgraph 工具层
-        Registry[Registry 工具注册表]
-        Bash[bash 命令执行]
-        ReadFile[read_file 文件读取]
-        WriteFile[write_file 文件写入]
-        EditFile[edit_file 文件编辑]
+    subgraph Provider
+        D[LLMProvider]
+        E[OpenAIProvider]
+        F[MiniMaxProvider]
     end
 
-    subgraph 适配层
-        OpenAIProvider[OpenAIProvider]
-        MiniMaxProvider[MiniMaxProvider]
+    subgraph Context
+        G[PromptComposer]
+        H[SkillLoader]
     end
 
-    subgraph 数据层
-        Schema[Schema 数据契约]
+    subgraph Tools
+        I[Registry]
+        J[BashTool]
+        K[ReadFileTool]
+        L[WriteFileTool]
+        M[EditFileTool]
     end
 
-    subgraph 外部服务
-        DeepSeekAPI[DeepSeek API]
-        AnthropicAPI[Anthropic/MiniMax API]
-        FileSystem[文件系统]
-        Shell[Shell 命令]
+    subgraph Schema
+        N[Message]
+        O[ToolCall]
+        P[ToolResult]
+        Q[ToolDefinition]
     end
 
-    CLI --> Engine
-    Feishu --> Engine
-    Engine -->|调用推理| OpenAIProvider
-    Engine -->|调用推理| MiniMaxProvider
-    Engine -->|调用工具| Registry
-    Engine -->|触发事件| Reporter
+    subgraph Feishu
+        R[FeishuBot]
+        S[FeishuReporter]
+    end
 
-    Registry --> Bash
-    Registry --> ReadFile
-    Registry --> WriteFile
-    Registry --> EditFile
-
-    OpenAIProvider --> DeepSeekAPI
-    MiniMaxProvider --> AnthropicAPI
-    Bash --> Shell
-    ReadFile --> FileSystem
-    WriteFile --> FileSystem
-    EditFile --> FileSystem
-
-    Schema -.->|被所有层依赖| Engine
-    Schema -.->|被所有层依赖| Registry
-    Schema -.->|被所有层依赖| OpenAIProvider
-    Schema -.->|被所有层依赖| MiniMaxProvider
+    A --> B
+    A --> I
+    A --> D
+    B --> D
+    B --> I
+    B --> G
+    B --> C
+    D --> E
+    D --> F
+    G --> H
+    I --> J
+    I --> K
+    I --> L
+    I --> M
+    R --> B
+    R --> S
+    S --> C
+    B --> N
+    E --> N
+    F --> N
 ```
 
-## 模块文档导航
+## ReAct 循环流程
 
-| 模块 | 文档 | 职责 |
-|------|------|------|
-| Schema 层 | [schema.md](schema.md) | 定义 Message/ToolCall/ToolResult/ToolDefinition 数据契约 |
-| Provider 层 | [provider.md](provider.md) | 适配 OpenAI/Anthropic API，加载应用配置 |
-| 工具层 | [tools.md](tools.md) | 工具注册表与四款内置工具（bash/read/write/edit）|
-| 引擎层 | [engine.md](engine.md) | ReAct 主循环（Thinking-Action-Observation）+ Reporter 接口 |
-| 飞书集成 | [feishu.md](feishu.md) | 飞书 WebSocket 接入 + FeishuReporter |
-| 入口层 | [entry.md](entry.md) | 程序装配与双模式启动 |
+```mermaid
+graph TD
+    Start([用户输入]) --> Think[Thinking 阶段]
+    Think --> LLM1[LLM 纯推理]
+    LLM1 --> Action[Action 阶段]
+    Action --> LLM2[LLM 决策工具调用]
+    LLM2 --> Check{需要工具?}
+    Check -->|是| Execute[并发执行工具]
+    Execute --> Observe[Observation 阶段]
+    Observe --> Feed[结果反馈给 LLM]
+    Feed --> Action
+    Check -->|否| Done([任务完成])
+```
 
-## 核心工作流
+## 核心模块
 
-框架的核心是 `AgentEngine.Run()` 方法实现的 ReAct 循环：
+| 模块 | 路径 | 职责 | 文档 |
+|------|------|------|------|
+| **Entry** | `cmd/claw/` | 应用入口，组装所有模块并启动 Agent | [Entry.md](Entry.md) |
+| **Engine** | `internal/engine/` | ReAct 循环引擎，驱动 Thinking → Action → Observation | [Engine.md](Engine.md) |
+| **Provider** | `internal/provider/` | LLM 提供者抽象层，支持 OpenAI/Anthropic 协议 | [Provider.md](Provider.md) |
+| **Tools** | `internal/tools/` | 可插拔工具注册表 + 4 个内置工具 | [Tools.md](Tools.md) |
+| **Context** | `internal/context/` | 动态系统提示词组装 + 技能加载器 | [Context.md](Context.md) |
+| **Schema** | `internal/schema/` | 核心数据契约：Message、ToolCall、ToolResult、ToolDefinition | [Schema.md](Schema.md) |
+| **Feishu** | `internal/feishu/` | 飞书 WebSocket 机器人 + 飞书 Reporter | [Feishu.md](Feishu.md) |
 
-1. **Thinking 阶段**：不带工具调用 LLM，让模型纯粹推理策略（可选，由 `EnableThinking` 控制）
-2. **Action 阶段**：带上工具列表调用 LLM，模型决定调用工具或给出最终回答
-3. **Observation 阶段**：并发执行模型请求的工具调用，将结果追加到上下文历史
-4. **循环**：重复 1-3，直到模型不再请求工具调用（任务完成）
+## 模块依赖关系
+
+```mermaid
+graph LR
+    Entry --> Engine
+    Entry --> Provider
+    Entry --> Tools
+    Entry --> Feishu
+    Engine --> Provider
+    Engine --> Tools
+    Engine --> Context
+    Engine --> Schema
+    Provider --> Schema
+    Tools --> Schema
+    Feishu --> Engine
+    Context --> Schema
+```
+
+## 技术栈
+
+- **语言**: Go 1.26+
+- **LLM SDK**: `openai-go/v3`（OpenAI 兼容协议）、`anthropic-sdk-go`（Anthropic 协议）
+- **IM 集成**: `oapi-sdk-go/v3`（飞书开放平台 SDK）
+- **架构模式**: ReAct Agent Loop、接口驱动（Interface-driven）、观察者模式（Reporter）
+
+## 安全机制
+
+项目内置了多层安全防护：
+
+- **工作目录隔离**: 所有工具操作限制在 `workspace/` 目录内
+- **超时控制**: Bash 命令 30 秒超时，防止无限执行
+- **输出截断**: 工具输出超过 8000 字节自动截断
+- **错误自修正**: 工具执行错误不崩溃，反馈给 LLM 让其自行修正
+- **模糊匹配**: EditFileTool 采用 4 级匹配策略，容忍格式差异
+
+## 快速开始
+
+```bash
+# 安装依赖
+go mod tidy
+
+# 配置模型（编辑 config.json）
+# 支持 OpenAI 兼容和 Anthropic 兼容两种协议
+
+# 运行
+go run ./cmd/claw/
+```
 
 ## 项目结构
 
 ```
 go-my-harness/
-├── cmd/claw/main.go          # 程序入口
+├── cmd/claw/main.go          # 应用入口
 ├── internal/
-│   ├── engine/                # 引擎层（主循环 + Reporter）
-│   │   ├── loop.go
-│   │   └── reporter.go
-│   ├── tools/                 # 工具层（注册表 + 4款工具）
-│   │   ├── registry.go
-│   │   ├── bash.go
-│   │   ├── read_file.go
-│   │   ├── write_file.go
-│   │   └── edit_file.go
-│   ├── provider/              # Provider层（LLM适配 + 配置）
-│   │   ├── interface.go
-│   │   ├── config.go
-│   │   ├── claude.go
-│   │   └── openpi.go
-│   ├── schema/                # 数据契约层
-│   │   └── message.go
-│   └── feishu/                # 飞书集成
-│       └── bot.go
-├── config.json                # 应用配置（模型 + 飞书）
-├── models.json                # 模型配置
-├── go.mod
-└── repowiki/                  # 生成的 Wiki 文档
+│   ├── context/               # 提示词系统
+│   │   ├── composer.go        # 动态 Prompt 组装
+│   │   └── skill.go           # 技能加载器
+│   ├── engine/                # Agent 引擎
+│   │   ├── loop.go            # ReAct 循环核心
+│   │   ├── reporter.go        # 输出抽象接口
+│   │   └── terminal_repoter.go # 终端输出实现
+│   ├── feishu/                # 飞书集成
+│   │   └── bot.go             # WebSocket 机器人 + Reporter
+│   ├── provider/              # LLM 提供者
+│   │   ├── interface.go       # 接口定义
+│   │   ├── config.go          # 配置解析
+│   │   ├── openpi.go          # OpenAI 兼容实现
+│   │   └── claude.go          # Anthropic 兼容实现
+│   ├── schema/                # 数据模型
+│   │   └── message.go         # 核心数据结构
+│   └── tools/                 # 工具系统
+│       ├── registry.go        # 注册表接口
+│       ├── bash.go            # Shell 命令执行
+│       ├── read_file.go       # 文件读取
+│       ├── write_file.go      # 文件写入
+│       └── edit_file.go       # 模糊编辑
+├── workspace/                 # Agent 沙箱目录
+├── config.json                # 运行时配置
+└── go.mod                     # 模块定义
 ```
-
-## 关键设计决策
-
-### 1. 通用 Schema 解耦 LLM 厂商
-
-框架定义了与厂商无关的 `schema.Message` 数据结构，所有 LLM 差异封装在 Provider 层的翻译逻辑中。新增厂商只需实现 `LLMProvider.Generate()` 方法。
-
-### 2. 工具错误自愈机制
-
-工具执行错误不中断流程，而是以 `ToolResult(IsError=true)` 形式回传给大模型。模型基于错误信息自主分析并调整策略，实现 Self-Correction。
-
-### 3. Reporter 接口实现多端适配
-
-引擎通过 `Reporter` 接口输出内部状态，终端和飞书各自实现该接口。引擎不关心输出到哪里，展现层可自由扩展（如 WebUI、钉钉）。
-
-### 4. 并发工具执行
-
-多个工具调用通过 `sync.WaitGroup` 并发执行，通过索引数组保证结果顺序，兼顾效率与正确性。
-
-### 5. 多重安全防线
-
-所有工具受 WorkDir 约束，内置超时控制（bash 30s）、长度截断（8000 字节）、模糊匹配（edit_file 四级策略）等防御性编程机制。
-
-## 快速开始
-
-```bash
-# 1. 配置 config.json（填入 API Key 和飞书凭据）
-# 2. 安装依赖
-go mod tidy
-# 3. 运行
- go run ./cmd/claw
-```
-
-终端模式始终启动，飞书模式在配置非空时后台自动启动。
