@@ -13,6 +13,7 @@ import (
 	"github.com/larksuite/oapi-sdk-go/v3/ws"
 	"github.com/mambo-wang/go-my-harness/internal/engine"
 	"github.com/mambo-wang/go-my-harness/internal/provider"
+	"github.com/mambo-wang/go-my-harness/internal/schema"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
@@ -26,9 +27,10 @@ type FeishuBot struct {
 	encryptKey  string
 	verifyToken string
 	engine      *engine.AgentEngine // 持有核心引擎引用
+	workDir     string               // 工作区物理路径，用于创建 Session
 }
 
-func NewFeishuBot(eng *engine.AgentEngine, cfg *provider.FeishuConfig) *FeishuBot {
+func NewFeishuBot(eng *engine.AgentEngine, cfg *provider.FeishuConfig, workDir string) *FeishuBot {
 	if cfg.AppID == "" || cfg.AppSecret == "" {
 		log.Fatal("请在 config.json 中配置 feishu.app_id 和 feishu.app_secret")
 	}
@@ -43,6 +45,7 @@ func NewFeishuBot(eng *engine.AgentEngine, cfg *provider.FeishuConfig) *FeishuBo
 		encryptKey:  cfg.EncryptKey,
 		verifyToken: cfg.VerifyToken,
 		engine:      eng,
+		workDir:     workDir,
 	}
 }
 
@@ -111,8 +114,13 @@ func (b *FeishuBot) handleAgentRun(chatId string, prompt string) {
 		chatId: chatId,
 	}
 
+	// 【Session 物理隔离】：用飞书 ChatID 作为 SessionID，
+	// 不同群聊的消息各自进入独立的 Session，互不干扰
+	session := engine.GlobalSessionMgr.GetOrCreate(chatId, b.workDir)
+	session.Append(schema.Message{Role: schema.RoleUser, Content: prompt})
+
 	// 启动引擎！
-	err := b.engine.Run(context.Background(), prompt, reporter)
+	err := b.engine.Run(context.Background(), session, reporter)
 	if err != nil {
 		reporter.sendMsg(fmt.Sprintf("❌ Agent 运行崩溃: %v", err))
 	}
