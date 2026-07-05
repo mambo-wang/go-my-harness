@@ -14,6 +14,12 @@
   "Reporter": [
     "internal/engine/reporter.go"
   ],
+  "Session": [
+    "internal/engine/session.go"
+  ],
+  "SessionManager": [
+    "internal/engine/session.go"
+  ],
   "TerminalReporter": [
     "internal/engine/terminal_repoter.go"
   ],
@@ -85,8 +91,5 @@
   ],
   "writeFileArgs": [
     "internal/tools/write_file.go"
-  ],
-  "Response": [
-    "workspace/ping.go"
   ]
 }

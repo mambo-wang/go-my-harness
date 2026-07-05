@@ -4,48 +4,23 @@
 
 | 时间 | 操作 | 说明 |
 |------|------|------|
-| 2026-06-28T21:18:52+08:00 | analyze_repo | 分析仓库 go-my-harness，85 个组件 |
-| 2026-06-28T21:30:21+08:00 | edit_doc_file | 更新 Entry.md (str_replace) |
-| 2026-06-28T21:31:11+08:00 | edit_doc_file | 更新 Entry.md (str_replace) |
-| 2026-06-28T21:31:22+08:00 | edit_doc_file | 更新 Context.md (str_replace) |
-| 2026-06-28T21:32:10+08:00 | edit_doc_file | 更新 Engine.md (str_replace) |
-| 2026-06-28T21:32:11+08:00 | edit_doc_file | 更新 Entry.md (insert) |
-| 2026-06-28T21:32:38+08:00 | edit_doc_file | 更新 Entry.md (str_replace) |
-| 2026-06-28T21:32:59+08:00 | edit_doc_file | 更新 Entry.md (str_replace) |
-| 2026-06-28T21:34:03+08:00 | edit_doc_file | 更新 Entry.md (str_replace) |
-| 2026-06-28T21:34:17+08:00 | edit_doc_file | 更新 Entry.md (str_replace) |
-| 2026-06-28T21:34:56+08:00 | edit_doc_file | 更新 Entry.md (str_replace) |
-| 2026-06-28T21:35:28+08:00 | edit_doc_file | 更新 Entry.md (str_replace) |
-| 2026-06-28T21:37:39+08:00 | edit_doc_file | 更新 Feishu.md (insert) |
-| 2026-06-28T21:37:42+08:00 | edit_doc_file | 更新 Schema.md (str_replace) |
-| 2026-06-28T21:38:41+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:39:23+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:40:22+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:40:43+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:41:19+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:41:33+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:42:10+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:42:39+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:43:02+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:43:28+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:43:49+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:44:26+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:44:48+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:45:29+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:45:56+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:46:26+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:46:49+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:47:08+08:00 | edit_doc_file | 更新 Feishu.md (str_replace) |
-| 2026-06-28T21:53:37+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:55:13+08:00 | edit_doc_file | 撤销 Provider.md |
-| 2026-06-28T21:56:42+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:57:00+08:00 | edit_doc_file | 撤销 Provider.md |
-| 2026-06-28T21:57:01+08:00 | write_doc_file | 创建 Engine.md |
-| 2026-06-28T21:57:16+08:00 | write_doc_file | 创建 Schema.md |
-| 2026-06-28T21:57:46+08:00 | write_doc_file | 创建 Entry.md |
-| 2026-06-28T21:59:08+08:00 | edit_doc_file | 撤销 Provider.md |
-| 2026-06-28T21:59:28+08:00 | write_doc_file | 创建 Context.md |
-| 2026-06-28T21:59:33+08:00 | edit_doc_file | 撤销 Feishu.md |
-| 2026-06-28T21:59:58+08:00 | write_doc_file | 创建 Tools.md |
-| 2026-06-28T22:00:23+08:00 | lint_wiki | 检查完成: 1 个问题 |
-| 2026-06-28T22:00:43+08:00 | close_session | 会话 81209275bdde 关闭 |
+| 2026-07-05T20:40:09+08:00 | analyze_repo | 分析仓库 go-my-harness，95 个组件 |
+| 2026-07-05T20:44:23+08:00 | write_doc_file | 创建 上下文管理.md |
+| 2026-07-05T20:44:39+08:00 | write_doc_file | 创建 LLM提供者.md |
+| 2026-07-05T20:44:55+08:00 | write_doc_file | 创建 引擎核心.md |
+| 2026-07-05T20:45:06+08:00 | write_doc_file | 创建 工具系统.md |
+| 2026-07-05T20:45:18+08:00 | write_doc_file | 创建 飞书集成.md |
+| 2026-07-05T20:46:14+08:00 | write_doc_file | 创建 应用入口.md |
+| 2026-07-05T20:47:18+08:00 | write_doc_file | 创建 overview.md |
+| 2026-07-05T20:47:35+08:00 | lint_wiki | 检查完成: 41 个问题 |
+| 2026-07-05T20:48:56+08:00 | edit_doc_file | 更新 引擎核心.md (str_replace) |
+| 2026-07-05T20:49:12+08:00 | edit_doc_file | 更新 LLM提供者.md (str_replace) |
+| 2026-07-05T20:49:13+08:00 | edit_doc_file | 更新 LLM提供者.md (str_replace) |
+| 2026-07-05T20:49:18+08:00 | edit_doc_file | 更新 LLM提供者.md (str_replace) |
+| 2026-07-05T20:49:25+08:00 | edit_doc_file | 更新 工具系统.md (str_replace) |
+| 2026-07-05T20:49:27+08:00 | edit_doc_file | 更新 上下文管理.md (str_replace) |
+| 2026-07-05T20:49:56+08:00 | edit_doc_file | 更新 飞书集成.md (str_replace) |
+| 2026-07-05T20:50:00+08:00 | edit_doc_file | 更新 飞书集成.md (str_replace) |
+| 2026-07-05T20:50:01+08:00 | edit_doc_file | 更新 飞书集成.md (str_replace) |
+| 2026-07-05T20:50:03+08:00 | edit_doc_file | 更新 飞书集成.md (str_replace) |
+| 2026-07-05T20:50:05+08:00 | edit_doc_file | 更新 飞书集成.md (str_replace) |

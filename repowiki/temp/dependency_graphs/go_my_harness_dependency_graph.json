@@ -6,25 +6,22 @@
     "file_path": "/Users/kirito/repos/go-my-harness/cmd/claw/main.go",
     "relative_path": "cmd/claw/main.go",
     "depends_on": [
-      "internal/provider/claude.go::NewAnthropicProvider",
-      "internal/engine/terminal_repoter.go::NewTerminalReporter",
-      "internal/provider/config.go::AppConfig.GetModelConfig",
-      "internal/tools/registry.go::registryImpl.Register",
-      "internal/tools/write_file.go::NewWriteFileTool",
-      "internal/feishu/bot.go::FeishuBot.StartWebSocket",
-      "internal/tools/edit_file.go::NewEditFileTool",
-      "internal/tools/registry.go::NewRegistry",
-      "internal/feishu/bot.go::NewFeishuBot",
       "internal/provider/config.go::LoadConfig",
-      "internal/tools/bash.go::NewBashTool",
       "internal/provider/openpi.go::NewOpenAIProvider",
-      "internal/tools/read_file.go::NewReadFileTool",
+      "internal/engine/session.go::SessionManager.GetOrCreate",
+      "internal/engine/terminal_repoter.go::NewTerminalReporter",
+      "internal/tools/registry.go::registryImpl.Register",
       "internal/engine/loop.go::NewAgentEngine",
+      "internal/engine/session.go::Session.Append",
+      "internal/provider/config.go::AppConfig.GetModelConfig",
+      "internal/provider/claude.go::NewAnthropicProvider",
+      "internal/tools/registry.go::NewRegistry",
+      "internal/tools/read_file.go::NewReadFileTool",
       "internal/engine/loop.go::AgentEngine.Run"
     ],
-    "source_code": "func main() {\n    // 1. 获取工作区物理边界\n    project_root, _ := os.Getwd()\n\tworkDir := filepath.Join(project_root, \"workspace\")\n\n    // 2. 从 config.json 配置文件读取应用配置\n\tconfigPath := filepath.Join(project_root, \"config.json\")\n    cfg, err := provider.LoadConfig(configPath)\n    if err != nil {\n        log.Fatalf(\"加载配置文件失败: %v\", err)\n    }\n\n    mc, modelName, err := cfg.GetModelConfig(\"\")\n    if err != nil {\n        log.Fatalf(\"获取模型配置失败: %v\", err)\n    }\n    fmt.Printf(\"[Config] 使用模型: %s (provider=%s)\\n\", modelName, mc.Provider)\n\n    // 3. 根据 provider 类型创建 LLM Provider\n    var llmProvider provider.LLMProvider\n    switch mc.Provider {\n    case \"openai\":\n        llmProvider = provider.NewOpenAIProvider(mc.APIKey, mc.BaseURL, modelName)\n    case \"anthropic\":\n        llmProvider = provider.NewAnthropicProvider(mc.APIKey, mc.BaseURL, modelName)\n    default:\n        log.Fatalf(\"不支持的 provider 类型: %s\", mc.Provider)\n    }\n\n    registry := tools.NewRegistry()\n    registry.Register(tools.NewReadFileTool(workDir))\n    registry.Register(tools.NewWriteFileTool(workDir))\n    registry.Register(tools.NewBashTool(workDir))\n    registry.Register(tools.NewEditFileTool(workDir))\n\n\teng := engine.NewAgentEngine(llmProvider, registry, workDir, true)\n\n\tctx, cancel := context.WithCancel(context.Background())\n\tdefer cancel()\n\n\tsigChan := make(chan os.Signal, 1)\n\tsignal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)\n\n\t// 飞书模式：配置文件中飞书字段非空时后台启动\n\tif cfg.Feishu != nil && cfg.Feishu.AppID != \"\" && cfg.Feishu.AppSecret != \"\" {\n\t\tbot := feishu.NewFeishuBot(eng, cfg.Feishu)\n\t\tgo func() {\n\t\t\tlog.Println(\"🚀 飞书 WebSocket 长连接模式启动...\")\n\t\t\tif errfeishu := bot.StartWebSocket(ctx); errfeishu != nil {\n\t\t\t\tlog.Printf(\"❌ WebSocket 连接失败: %v\\n\", errfeishu)\n\t\t\t}\n\t\t}()\n\t}\n\n    // 【注入新实现的终端输出器】\n    reporter := engine.NewTerminalReporter()\n\n    prompt := `\n    我需要在当前目录下新建一个 ping.go，提供一个简单的 http ping 接口。\n    写完之后，帮我把代码用 git 提交一下。\n    `\n\n    err = eng.Run(context.Background(), prompt, reporter)\n    if err != nil {\n        log.Fatalf(\"引擎运行崩溃: %v\", err)\n    }\n}",
-    "start_line": 19,
-    "end_line": 85,
+    "source_code": "func main() {\n\t// 1. 从 config.json 加载应用配置\n\tprojectRoot, _ := os.Getwd()\n\tconfigPath := filepath.Join(projectRoot, \"config.json\")\n\tcfg, err := provider.LoadConfig(configPath)\n\tif err != nil {\n\t\tlog.Fatalf(\"加载配置文件失败: %v\", err)\n\t}\n\n\tmc, modelName, err := cfg.GetModelConfig(\"\")\n\tif err != nil {\n\t\tlog.Fatalf(\"获取模型配置失败: %v\", err)\n\t}\n\tfmt.Printf(\"[Config] 使用模型: %s (provider=%s)\\n\", modelName, mc.Provider)\n\n\t// 2. 根据 provider 类型创建 LLM Provider\n\tvar llmProvider provider.LLMProvider\n\tswitch mc.Provider {\n\tcase \"openai\":\n\t\tllmProvider = provider.NewOpenAIProvider(mc.APIKey, mc.BaseURL, modelName)\n\tcase \"anthropic\":\n\t\tllmProvider = provider.NewAnthropicProvider(mc.APIKey, mc.BaseURL, modelName)\n\tdefault:\n\t\tlog.Fatalf(\"不支持的 provider 类型: %s\", mc.Provider)\n\t}\n\n\t// 3. 准备测试环境：创建两个模拟项目目录\n\tos.MkdirAll(\"/tmp/project_front\", 0755)\n\tos.MkdirAll(\"/tmp/project_back\", 0755)\n\tos.WriteFile(\"/tmp/project_front/README.md\",\n\t\t[]byte(\"这是项目 A 的 README，里面包含了一个密钥: token_12345\"), 0644)\n\n\t// 4. 创建引擎（Registry 绑定到 project_front）\n\t//    注意：EnableThinking 关闭，聚焦测试 Session 隔离本身\n\tregistry := tools.NewRegistry()\n\tregistry.Register(tools.NewReadFileTool(\"/tmp/project_front\"))\n\teng := engine.NewAgentEngine(llmProvider, registry, false)\n\n\treporter := engine.NewTerminalReporter()\n\n\t// 5. 并发测试：两个 Goroutine 模拟飞书\"前端群\"和\"后端群\"\n\tvar wg sync.WaitGroup\n\n\t// Session A: 前端群 — 测试 Working Memory 截断\n\twg.Add(1)\n\tgo func() {\n\t\tdefer wg.Done()\n\t\tsessionA := engine.GlobalSessionMgr.GetOrCreate(\"chat_front_001\", \"/tmp/project_front\")\n\n\t\tlog.Println(\"\\n>>> 🙋 [Session A / Turn 1]: 帮我看看 README.md 里记录了什么密钥？\")\n\t\tsessionA.Append(schema.Message{Role: schema.RoleUser, Content: \"帮我看看 README.md 里记录了什么密钥？\"})\n\t\t_ = eng.Run(context.Background(), sessionA, reporter)\n\n\t\t// 塞入 6 条闲聊，逼迫 Working Memory（limit=6）截断第一轮的 ToolResult\n\t\tfor i := 0; i < 6; i++ {\n\t\t\tsessionA.Append(schema.Message{Role: schema.RoleUser, Content: \"这只是一句闲聊占位符。\"})\n\t\t\tsessionA.Append(schema.Message{Role: schema.RoleAssistant, Content: \"好的，收到闲聊。\"})\n\t\t}\n\n\t\tlog.Println(\"\\n>>> 🙋 [Session A / Turn 2]: 请直接告诉我，刚才第一轮你查到的那个密钥是什么？\")\n\t\tsessionA.Append(schema.Message{Role: schema.RoleUser, Content: \"请直接告诉我，刚才第一轮你查到的那个密钥是什么？不准调用工具！\"})\n\t\t_ = eng.Run(context.Background(), sessionA, reporter)\n\t}()\n\n\t// Session B: 后端群 — 测试物理隔离\n\twg.Add(1)\n\tgo func() {\n\t\tdefer wg.Done()\n\t\ttime.Sleep(1 * time.Second) // 让 Session A 先跑一会\n\n\t\tsessionB := engine.GlobalSessionMgr.GetOrCreate(\"chat_back_002\", \"/tmp/project_back\")\n\n\t\tlog.Println(\"\\n>>> 🙋 [Session B]: 别人查到了一个密钥，你这里能看到吗？\")\n\t\tsessionB.Append(schema.Message{Role: schema.RoleUser, Content: \"别人查到了一个密钥，你这里能看到吗？不准调用工具！\"})\n\t\t_ = eng.Run(context.Background(), sessionB, reporter)\n\t}()\n\n\twg.Wait()\n\tlog.Println(\"\\n✅ 并发测试完成\")\n}",
+    "start_line": 26,
+    "end_line": 105,
     "has_docstring": false,
     "docstring": "",
     "parameters": null,
@@ -252,15 +249,14 @@
     "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/loop.go",
     "relative_path": "internal/engine/loop.go",
     "depends_on": [
-      "internal/provider/interface.go::LLMProvider",
-      "internal/context/composer.go::PromptComposer",
-      "internal/tools/registry.go::Registry"
+      "internal/tools/registry.go::Registry",
+      "internal/provider/interface.go::LLMProvider"
     ],
-    "source_code": "type AgentEngine struct {\n    provider provider.LLMProvider // LLM提供者\n    registry tools.Registry // 工具注册表\n    WorkDir  string // 工作目录\n    EnableThinking bool //慢思考模式开关\n    composer       *ctxpkg.PromptComposer // 【新增】引擎持有 Composer 实例\n}",
-    "start_line": 14,
-    "end_line": 20,
-    "has_docstring": false,
-    "docstring": "",
+    "source_code": "type AgentEngine struct {\n    provider       provider.LLMProvider // LLM 提供者\n    registry       tools.Registry       // 工具注册表\n    EnableThinking bool                 // 慢思考模式开关\n}",
+    "start_line": 18,
+    "end_line": 22,
+    "has_docstring": true,
+    "docstring": "// 而是依靠传入的 Session 实例作为上下文的承载体，实现多端并发下的物理隔离。",
     "parameters": null,
     "node_type": "struct",
     "base_classes": null,
@@ -277,18 +273,16 @@
     "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/loop.go",
     "relative_path": "internal/engine/loop.go",
     "depends_on": [
-      "internal/context/composer.go::NewPromptComposer",
       "internal/engine/loop.go::AgentEngine"
     ],
-    "source_code": "func NewAgentEngine(p provider.LLMProvider, r tools.Registry, workDir string, enableThinking bool) *AgentEngine { \n    return &AgentEngine{ \n        provider: p, \n        registry: r, \n        WorkDir: workDir,\n        EnableThinking: enableThinking, \n        composer:       ctxpkg.NewPromptComposer(workDir), // 初始化组装器\n    }\n}",
-    "start_line": 22,
-    "end_line": 30,
-    "has_docstring": false,
-    "docstring": "",
+    "source_code": "func NewAgentEngine(p provider.LLMProvider, r tools.Registry, enableThinking bool) *AgentEngine {\n    return &AgentEngine{\n        provider:       p,\n        registry:       r,\n        EnableThinking: enableThinking,\n    }\n}",
+    "start_line": 26,
+    "end_line": 32,
+    "has_docstring": true,
+    "docstring": "// 注意：不再接收 workDir 参数——工作区由每次 Run 时传入的 Session 决定。",
     "parameters": [
       "p LLMProvider",
       "r Registry",
-      "workDir string",
       "enableThinking bool"
     ],
     "node_type": "function",
@@ -306,19 +300,22 @@
     "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/loop.go",
     "relative_path": "internal/engine/loop.go",
     "depends_on": [
-      "internal/context/composer.go::PromptComposer.Build",
+      "internal/tools/bash.go::BashTool.Execute",
+      "internal/engine/session.go::Session.GetWorkingMemory",
       "internal/provider/claude.go::MiniMaxProvider.Generate",
       "internal/tools/registry.go::registryImpl.GetAvailableTools",
-      "internal/tools/bash.go::BashTool.Execute"
+      "internal/context/composer.go::PromptComposer.Build",
+      "internal/context/composer.go::NewPromptComposer",
+      "internal/engine/session.go::Session.Append"
     ],
-    "source_code": "func (e *AgentEngine) Run(ctx context.Context, userPrompt string, reporter Reporter) error {\n    log.Printf(\"[Engine] 引擎启动，锁定工作区: %s\\n\", e.WorkDir)\n\n    // 【核心修改】动态组装 System Prompt，彻底替换掉以前硬编码的面条提示词！    \n    systemMsg := e.composer.Build()\n\n    contextHistory := []schema.Message{        \n        systemMsg, // 注入动态组装的内核、AGENTS.md 与 Skills        \n        {Role: schema.RoleUser, Content: userPrompt},    \n    }\n\n    turnCount := 0\n\n    for {\n        turnCount++\n        availableTools := e.registry.GetAvailableTools()\n\n        // ================= Phase 1: Thinking =================\n        if e.EnableThinking {\n            if reporter != nil {\n                // 【触发 Reporter】: 开始慢思考\n                reporter.OnThinking(ctx)\n            }\n\n            thinkResp, err := e.provider.Generate(ctx, contextHistory, nil)\n            if err != nil {\n                return fmt.Errorf(\"Thinking 生成失败: %w\", err)\n            }\n            if thinkResp.Content != \"\" {\n                contextHistory = append(contextHistory, *thinkResp)\n            }\n        }\n\n        // ================= Phase 2: Action =================\n        actionResp, err := e.provider.Generate(ctx, contextHistory, availableTools)\n        if err != nil {\n            return fmt.Errorf(\"Action 生成失败: %w\", err)\n        }\n\n        contextHistory = append(contextHistory, *actionResp)\n\n        if actionResp.Content != \"\" && reporter != nil {\n            // 【触发 Reporter】: 输出阶段性总结或最终回复\n            reporter.OnMessage(ctx, actionResp.Content)\n        }\n\n        // ================= 执行退出与并发控制 =================\n        if len(actionResp.ToolCalls) == 0 {\n            break\n        }\n\n        observationMsgs := make([]schema.Message, len(actionResp.ToolCalls))\n        var wg sync.WaitGroup\n\n        for i, toolCall := range actionResp.ToolCalls {\n            wg.Add(1)\n\n            go func(idx int, call schema.ToolCall) {\n                defer wg.Done()\n\n                if reporter != nil {\n                    // 【触发 Reporter】: 报告即将在底层执行的工具\n                    reporter.OnToolCall(ctx, call.Name, string(call.Arguments))\n                }\n\n                result := e.registry.Execute(ctx, call)\n\n                if reporter != nil {\n                    // 为了防止大文件读取导致飞书消息过长被截断，我们仅汇报工具执行状态\n                    // 注意：传递给大模型的 observationMsgs 依然是完整数据，只是人类看到的 Reporter 是缩略版\n                    displayOutput := result.Output\n                    if len(displayOutput) > 200 {\n                        displayOutput = displayOutput[:200] + \"... (已截断)\"\n                    }\n                    // 【触发 Reporter】: 汇报工具物理执行的结果\n                    reporter.OnToolResult(ctx, call.Name, displayOutput, result.IsError)\n                }\n\n                observationMsgs[idx] = schema.Message{\n                    Role:       schema.RoleUser,\n                    Content:    result.Output,\n                    ToolCallID: call.ID,\n                }\n            }(i, toolCall)\n        }\n\n        wg.Wait()\n\n        for _, obs := range observationMsgs {\n            contextHistory = append(contextHistory, obs)\n        }\n    }\n\n    return nil\n}",
-    "start_line": 33,
-    "end_line": 127,
+    "source_code": "func (e *AgentEngine) Run(ctx context.Context, session *Session, reporter Reporter) error {\n    log.Printf(\"[Engine] 唤醒会话 [%s]，锁定工作区: %s\\n\", session.ID, session.WorkDir)\n\n    // 根据 Session 绑定的工作区动态组装 System Prompt\n    composer := ctxpkg.NewPromptComposer(session.WorkDir)\n    systemMsg := composer.Build()\n\n    for {\n        availableTools := e.registry.GetAvailableTools()\n\n        // 【核心】Working Memory 截取：不返回全量历史，只取最近 N 条作为短期工作记忆\n        workingMemory := session.GetWorkingMemory(6)\n\n        // 每次循环都重新拼装 contextHistory：System Prompt + Working Memory\n        var contextHistory []schema.Message\n        contextHistory = append(contextHistory, systemMsg)\n        contextHistory = append(contextHistory, workingMemory...)\n\n        // ================= Phase 1: Thinking =================\n        if e.EnableThinking {\n            if reporter != nil {\n                reporter.OnThinking(ctx)\n            }\n            thinkResp, err := e.provider.Generate(ctx, contextHistory, nil)\n            if err != nil {\n                return fmt.Errorf(\"Thinking 阶段失败: %w\", err)\n            }\n            if thinkResp.Content != \"\" {\n                session.Append(*thinkResp)\n                contextHistory = append(contextHistory, *thinkResp)\n            }\n        }\n\n        // ================= Phase 2: Action =================\n        actionResp, err := e.provider.Generate(ctx, contextHistory, availableTools)\n        if err != nil {\n            return fmt.Errorf(\"Action 阶段失败: %w\", err)\n        }\n        session.Append(*actionResp)\n        contextHistory = append(contextHistory, *actionResp)\n\n        if actionResp.Content != \"\" && reporter != nil {\n            reporter.OnMessage(ctx, actionResp.Content)\n        }\n\n        // ================= 执行退出与并发控制 =================\n        if len(actionResp.ToolCalls) == 0 {\n            break\n        }\n\n        observationMsgs := make([]schema.Message, len(actionResp.ToolCalls))\n        var wg sync.WaitGroup\n\n        for i, toolCall := range actionResp.ToolCalls {\n            wg.Add(1)\n\n            go func(idx int, call schema.ToolCall) {\n                defer wg.Done()\n\n                if reporter != nil {\n                    reporter.OnToolCall(ctx, call.Name, string(call.Arguments))\n                }\n\n                result := e.registry.Execute(ctx, call)\n\n                if reporter != nil {\n                    displayOutput := result.Output\n                    if len(displayOutput) > 200 {\n                        displayOutput = displayOutput[:200] + \"... (已截断)\"\n                    }\n                    reporter.OnToolResult(ctx, call.Name, displayOutput, result.IsError)\n                }\n\n                observationMsgs[idx] = schema.Message{\n                    Role:       schema.RoleUser,\n                    Content:    result.Output,\n                    ToolCallID: call.ID,\n                }\n            }(i, toolCall)\n        }\n\n        wg.Wait()\n\n        // 工具执行结果追加回 Session，供下一轮 Working Memory 截取\n        session.Append(observationMsgs...)\n    }\n\n    return nil\n}",
+    "start_line": 36,
+    "end_line": 124,
     "has_docstring": true,
-    "docstring": "// Run 方法新增了 Reporter 参数",
+    "docstring": "// 引擎不再\"用完即毁\"，而是从 Session 中恢复记忆，执行完毕后将新产生的消息追加回 Session。",
     "parameters": [
       "ctx Context",
-      "userPrompt string",
+      "session Session",
       "reporter Reporter"
     ],
     "node_type": "method",
@@ -347,6 +344,337 @@
     "class_name": null,
     "display_name": "interface Reporter",
     "component_id": "internal/engine/reporter.go::Reporter",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session.go::Session": {
+    "id": "internal/engine/session.go::Session",
+    "name": "Session",
+    "component_type": "struct",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session.go",
+    "relative_path": "internal/engine/session.go",
+    "depends_on": [
+      "internal/schema/message.go::Message"
+    ],
+    "source_code": "type Session struct {\n    ID        string\n    WorkDir   string // 该会话绑定的物理工作区\n    CreatedAt time.Time\n    UpdatedAt time.Time\n\n    // 存放此 Session 中所有的用户输入、大模型回复和工具调用结果\n    history []schema.Message\n    mu      sync.RWMutex // 读写锁，防止并发读写历史时发生 Data Race\n}",
+    "start_line": 12,
+    "end_line": 21,
+    "has_docstring": true,
+    "docstring": "// Session 代表了一次持续的人机交互过程。它负责维护该会话的完整历史。",
+    "parameters": null,
+    "node_type": "struct",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "struct Session",
+    "component_id": "internal/engine/session.go::Session",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session.go::NewSession": {
+    "id": "internal/engine/session.go::NewSession",
+    "name": "NewSession",
+    "component_type": "function",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session.go",
+    "relative_path": "internal/engine/session.go",
+    "depends_on": [
+      "internal/engine/session.go::Session"
+    ],
+    "source_code": "func NewSession(id string, workDir string) *Session {\n    return &Session{\n        ID:        id,\n        WorkDir:   workDir,\n        CreatedAt: time.Now(),\n        UpdatedAt: time.Now(),\n        history:   make([]schema.Message, 0),\n    }\n}",
+    "start_line": 23,
+    "end_line": 31,
+    "has_docstring": false,
+    "docstring": "",
+    "parameters": [
+      "id string",
+      "workDir string"
+    ],
+    "node_type": "function",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "function NewSession",
+    "component_id": "internal/engine/session.go::NewSession",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session.go::Session.Append": {
+    "id": "internal/engine/session.go::Session.Append",
+    "name": "Append",
+    "component_type": "method",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session.go",
+    "relative_path": "internal/engine/session.go",
+    "depends_on": [],
+    "source_code": "func (s *Session) Append(msgs ...schema.Message) {\n    s.mu.Lock()\n    defer s.mu.Unlock()\n    s.history = append(s.history, msgs...)\n    s.UpdatedAt = time.Now()\n\n    // 【持久化预留点】：在真实的工业级实现中（如 Claude Code），\n    // 我们会在这里将 s.history 以 JSONL 的格式 Append 到 workDir/.claw/sessions/xxx.jsonl 中。\n    // s.SaveToDisk()\n}",
+    "start_line": 34,
+    "end_line": 43,
+    "has_docstring": true,
+    "docstring": "// Append 线程安全地向 Session 中追加消息",
+    "parameters": null,
+    "node_type": "method",
+    "base_classes": null,
+    "class_name": "Session",
+    "display_name": "method (Session).Append",
+    "component_id": "internal/engine/session.go::Session.Append",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session.go::Session.GetWorkingMemory": {
+    "id": "internal/engine/session.go::Session.GetWorkingMemory",
+    "name": "GetWorkingMemory",
+    "component_type": "method",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session.go",
+    "relative_path": "internal/engine/session.go",
+    "depends_on": [],
+    "source_code": "func (s *Session) GetWorkingMemory(limit int) []schema.Message {\n    s.mu.RLock()\n    defer s.mu.RUnlock()\n\n    total := len(s.history)\n    if total <= limit || limit <= 0 {\n        // 如果历史总量小于限制，或者不设限，全量返回 (需要深拷贝以防外部修改)\n        res := make([]schema.Message, total)\n        copy(res, s.history)\n        return res\n    }\n\n    // 截取最近的 limit 条消息\n    res := make([]schema.Message, limit)\n    copy(res, s.history[total-limit:])\n\n    // 【驾驭防线】：大模型 API 强制要求历史消息的连续性！\n    // 如果我们截断的第一条消息恰好是一个 ToolResult (RoleUser 且含有 ToolCallID)，\n    // 但发出这个请求的 ToolCall 被我们截断抛弃了，大模型 API 会直接报 400 Bad Request。\n    // 因此，如果切片首条属于“孤儿”工具响应，我们必须将其强行舍弃，顺延到下一条正常的 User/Assistant 消息。\n    for len(res) > 0 {\n        if res[0].Role == schema.RoleUser && res[0].ToolCallID != \"\" {\n            res = res[1:]\n        } else {\n            break\n        }\n    }\n\n    return res\n}",
+    "start_line": 47,
+    "end_line": 76,
+    "has_docstring": true,
+    "docstring": "// 它不返回全量历史，而是从后往前截取最近的 N 条消息，形成 Agent 的“短期工作记忆”。",
+    "parameters": [
+      "limit int"
+    ],
+    "node_type": "method",
+    "base_classes": null,
+    "class_name": "Session",
+    "display_name": "method (Session).GetWorkingMemory",
+    "component_id": "internal/engine/session.go::Session.GetWorkingMemory",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session.go::SessionManager": {
+    "id": "internal/engine/session.go::SessionManager",
+    "name": "SessionManager",
+    "component_type": "struct",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session.go",
+    "relative_path": "internal/engine/session.go",
+    "depends_on": [
+      "internal/engine/session.go::Session"
+    ],
+    "source_code": "type SessionManager struct {\n    sessions map[string]*Session\n    mu       sync.RWMutex\n}",
+    "start_line": 82,
+    "end_line": 85,
+    "has_docstring": true,
+    "docstring": "// ==========================================",
+    "parameters": null,
+    "node_type": "struct",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "struct SessionManager",
+    "component_id": "internal/engine/session.go::SessionManager",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session.go::SessionManager.GetOrCreate": {
+    "id": "internal/engine/session.go::SessionManager.GetOrCreate",
+    "name": "GetOrCreate",
+    "component_type": "method",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session.go",
+    "relative_path": "internal/engine/session.go",
+    "depends_on": [
+      "internal/engine/session.go::NewSession"
+    ],
+    "source_code": "func (sm *SessionManager) GetOrCreate(id string, workDir string) *Session {\n    sm.mu.Lock()\n    defer sm.mu.Unlock()\n\n    if sess, exists := sm.sessions[id]; exists {\n        return sess\n    }\n    sess := NewSession(id, workDir)\n    sm.sessions[id] = sess\n    return sess\n}",
+    "start_line": 92,
+    "end_line": 102,
+    "has_docstring": true,
+    "docstring": "// GetOrCreate 获取或创建一个会话",
+    "parameters": [
+      "id string",
+      "workDir string"
+    ],
+    "node_type": "method",
+    "base_classes": null,
+    "class_name": "SessionManager",
+    "display_name": "method (SessionManager).GetOrCreate",
+    "component_id": "internal/engine/session.go::SessionManager.GetOrCreate",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session_test.go::TestGetWorkingMemory_FullReturn": {
+    "id": "internal/engine/session_test.go::TestGetWorkingMemory_FullReturn",
+    "name": "TestGetWorkingMemory_FullReturn",
+    "component_type": "function",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session_test.go",
+    "relative_path": "internal/engine/session_test.go",
+    "depends_on": [
+      "internal/engine/session.go::Session.GetWorkingMemory",
+      "internal/engine/session.go::NewSession",
+      "internal/engine/session.go::Session.Append"
+    ],
+    "source_code": "func TestGetWorkingMemory_FullReturn(t *testing.T) {\n\ts := NewSession(\"test-1\", \"/tmp\")\n\ts.Append(\n\t\tschema.Message{Role: schema.RoleUser, Content: \"hello\"},\n\t\tschema.Message{Role: schema.RoleAssistant, Content: \"hi\"},\n\t)\n\n\tmem := s.GetWorkingMemory(6)\n\tif len(mem) != 2 {\n\t\tt.Fatalf(\"期望 2 条，实际 %d 条\", len(mem))\n\t}\n\tif mem[0].Content != \"hello\" || mem[1].Content != \"hi\" {\n\t\tt.Error(\"内容顺序不正确\")\n\t}\n}",
+    "start_line": 12,
+    "end_line": 26,
+    "has_docstring": true,
+    "docstring": "// TestGetWorkingMemory_FullReturn 验证：历史总量不足 limit 时全量返回",
+    "parameters": [
+      "t T"
+    ],
+    "node_type": "function",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "function TestGetWorkingMemory_FullReturn",
+    "component_id": "internal/engine/session_test.go::TestGetWorkingMemory_FullReturn",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session_test.go::TestGetWorkingMemory_Truncation": {
+    "id": "internal/engine/session_test.go::TestGetWorkingMemory_Truncation",
+    "name": "TestGetWorkingMemory_Truncation",
+    "component_type": "function",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session_test.go",
+    "relative_path": "internal/engine/session_test.go",
+    "depends_on": [
+      "internal/engine/session.go::Session.GetWorkingMemory",
+      "internal/engine/session.go::NewSession",
+      "internal/engine/session.go::Session.Append"
+    ],
+    "source_code": "func TestGetWorkingMemory_Truncation(t *testing.T) {\n\ts := NewSession(\"test-2\", \"/tmp\")\n\t// 写入 8 条消息，limit=6 应只返回最后 6 条\n\tfor i := 0; i < 8; i++ {\n\t\ts.Append(schema.Message{Role: schema.RoleUser, Content: string(rune('A' + i))})\n\t}\n\n\tmem := s.GetWorkingMemory(6)\n\tif len(mem) != 6 {\n\t\tt.Fatalf(\"期望 6 条，实际 %d 条\", len(mem))\n\t}\n\t// 最后 6 条是 C,D,E,F,G,H（第 3~8 条）\n\tif mem[0].Content != \"C\" || mem[5].Content != \"H\" {\n\t\tt.Errorf(\"截取范围错误：首=%s, 末=%s\", mem[0].Content, mem[5].Content)\n\t}\n}",
+    "start_line": 29,
+    "end_line": 44,
+    "has_docstring": true,
+    "docstring": "// TestGetWorkingMemory_Truncation 验证：超过 limit 时从后往前截取最近 N 条",
+    "parameters": [
+      "t T"
+    ],
+    "node_type": "function",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "function TestGetWorkingMemory_Truncation",
+    "component_id": "internal/engine/session_test.go::TestGetWorkingMemory_Truncation",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session_test.go::TestGetWorkingMemory_OrphanToolResult": {
+    "id": "internal/engine/session_test.go::TestGetWorkingMemory_OrphanToolResult",
+    "name": "TestGetWorkingMemory_OrphanToolResult",
+    "component_type": "function",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session_test.go",
+    "relative_path": "internal/engine/session_test.go",
+    "depends_on": [
+      "internal/engine/session.go::Session.GetWorkingMemory",
+      "internal/engine/session.go::NewSession",
+      "internal/engine/session.go::Session.Append"
+    ],
+    "source_code": "func TestGetWorkingMemory_OrphanToolResult(t *testing.T) {\n\ts := NewSession(\"test-3\", \"/tmp\")\n\t// 构造 8 条历史：\n\t//  [0] User(A)          ← 被截断\n\t//  [1] Assistant(B)     ← 被截断\n\t//  [2] User(ToolResult, ToolCallID=\"call-1\")  ← 截断后首条，孤儿！必须丢弃\n\t//  [3] User(C)          ← 保留\n\t//  [4] Assistant(D)\n\t//  [5] User(E)\n\t//  [6] Assistant(F)\n\t//  [7] User(G)\n\ts.Append(\n\t\tschema.Message{Role: schema.RoleUser, Content: \"A\"},\n\t\tschema.Message{Role: schema.RoleAssistant, Content: \"B\"},\n\t\tschema.Message{Role: schema.RoleUser, Content: \"tool-output\", ToolCallID: \"call-1\"},\n\t\tschema.Message{Role: schema.RoleUser, Content: \"C\"},\n\t\tschema.Message{Role: schema.RoleAssistant, Content: \"D\"},\n\t\tschema.Message{Role: schema.RoleUser, Content: \"E\"},\n\t\tschema.Message{Role: schema.RoleAssistant, Content: \"F\"},\n\t\tschema.Message{Role: schema.RoleUser, Content: \"G\"},\n\t)\n\n\tmem := s.GetWorkingMemory(6)\n\t// limit=6 → 截取最后 6 条 = [2..7]，但 [2] 是孤儿 ToolResult，被丢弃\n\t// 最终应剩 5 条：C, D, E, F, G\n\tif len(mem) != 5 {\n\t\tt.Fatalf(\"期望 5 条（丢弃孤儿后），实际 %d 条\", len(mem))\n\t}\n\tif mem[0].Content != \"C\" {\n\t\tt.Errorf(\"孤儿 ToolResult 未被丢弃，首条内容=%s\", mem[0].Content)\n\t}\n\tif mem[0].ToolCallID != \"\" {\n\t\tt.Error(\"截取后首条仍含有 ToolCallID\")\n\t}\n}",
+    "start_line": 50,
+    "end_line": 84,
+    "has_docstring": true,
+    "docstring": "// 但对应的 ToolCall 被截断了，大模型 API 会报 400。GetWorkingMemory 必须丢弃它。",
+    "parameters": [
+      "t T"
+    ],
+    "node_type": "function",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "function TestGetWorkingMemory_OrphanToolResult",
+    "component_id": "internal/engine/session_test.go::TestGetWorkingMemory_OrphanToolResult",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session_test.go::TestSessionPhysicalIsolation": {
+    "id": "internal/engine/session_test.go::TestSessionPhysicalIsolation",
+    "name": "TestSessionPhysicalIsolation",
+    "component_type": "function",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session_test.go",
+    "relative_path": "internal/engine/session_test.go",
+    "depends_on": [
+      "internal/engine/session.go::Session.GetWorkingMemory",
+      "internal/engine/session.go::SessionManager.GetOrCreate",
+      "internal/engine/session.go::SessionManager",
+      "internal/engine/session.go::Session.Append"
+    ],
+    "source_code": "func TestSessionPhysicalIsolation(t *testing.T) {\n\tmgr := &SessionManager{sessions: make(map[string]*Session)}\n\n\tsessA := mgr.GetOrCreate(\"chat_front_001\", \"/tmp/project_front\")\n\tsessB := mgr.GetOrCreate(\"chat_back_002\", \"/tmp/project_back\")\n\n\tsessA.Append(\n\t\tschema.Message{Role: schema.RoleUser, Content: \"帮我看看 README.md 里的密钥\"},\n\t\tschema.Message{Role: schema.RoleAssistant, Content: \"密钥是 token_12345\"},\n\t)\n\n\tsessB.Append(\n\t\tschema.Message{Role: schema.RoleUser, Content: \"别人查到了一个密钥，你这里能看到吗？\"},\n\t)\n\n\t// Session B 的工作记忆不应包含 Session A 的任何消息\n\tmemB := sessB.GetWorkingMemory(6)\n\tif len(memB) != 1 {\n\t\tt.Fatalf(\"Session B 应只有 1 条，实际 %d 条\", len(memB))\n\t}\n\tfor _, m := range memB {\n\t\tif m.Content == \"密钥是 token_12345\" {\n\t\t\tt.Fatal(\"物理隔离失败：Session B 看到了 Session A 的密钥！\")\n\t\t}\n\t}\n\n\t// Session A 的工作记忆不应包含 Session B 的消息\n\tmemA := sessA.GetWorkingMemory(6)\n\tif len(memA) != 2 {\n\t\tt.Fatalf(\"Session A 应有 2 条，实际 %d 条\", len(memA))\n\t}\n\tfor _, m := range memA {\n\t\tif m.Content == \"别人查到了一个密钥，你这里能看到吗？\" {\n\t\t\tt.Fatal(\"物理隔离失败：Session A 看到了 Session B 的消息！\")\n\t\t}\n\t}\n}",
+    "start_line": 89,
+    "end_line": 125,
+    "has_docstring": true,
+    "docstring": "// 对应文章核心场景：群 A 查密钥，群 B 不应看到群 A 的任何消息。",
+    "parameters": [
+      "t T"
+    ],
+    "node_type": "function",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "function TestSessionPhysicalIsolation",
+    "component_id": "internal/engine/session_test.go::TestSessionPhysicalIsolation",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session_test.go::TestWorkingMemoryForgetting": {
+    "id": "internal/engine/session_test.go::TestWorkingMemoryForgetting",
+    "name": "TestWorkingMemoryForgetting",
+    "component_type": "function",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session_test.go",
+    "relative_path": "internal/engine/session_test.go",
+    "depends_on": [
+      "internal/engine/session.go::Session.GetWorkingMemory",
+      "internal/engine/session.go::NewSession",
+      "internal/engine/session.go::Session.Append"
+    ],
+    "source_code": "func TestWorkingMemoryForgetting(t *testing.T) {\n\ts := NewSession(\"chat_front_001\", \"/tmp/project_front\")\n\n\t// Turn 1：用户提问 + 助手回答（含密钥）\n\ts.Append(\n\t\tschema.Message{Role: schema.RoleUser, Content: \"帮我看看 README.md 里的密钥\"},\n\t\tschema.Message{Role: schema.RoleAssistant, Content: \"密钥是 token_12345\"},\n\t)\n\n\t// 塞入 6 条闲聊（3 轮 user+assistant）\n\tfor i := 0; i < 3; i++ {\n\t\ts.Append(\n\t\t\tschema.Message{Role: schema.RoleUser, Content: \"闲聊占位符\"},\n\t\t\tschema.Message{Role: schema.RoleAssistant, Content: \"好的，收到闲聊\"},\n\t\t)\n\t}\n\n\t// Turn 2：用户问密钥\n\ts.Append(schema.Message{Role: schema.RoleUser, Content: \"刚才的密钥是什么？\"})\n\n\t// limit=6：history 共 9 条，截取最后 6 条\n\t// 最后 6 条 = [3..8] = 闲聊×6 + 密钥问题\n\t// 第一轮的密钥回答（index 1）已被截断丢弃\n\tmem := s.GetWorkingMemory(6)\n\tif len(mem) != 6 {\n\t\tt.Fatalf(\"期望 6 条，实际 %d 条\", len(mem))\n\t}\n\n\t// 验证密钥回答不在工作记忆中\n\tfor _, m := range mem {\n\t\tif m.Content == \"密钥是 token_12345\" {\n\t\t\tt.Fatal(\"Working Memory 截断失败：早期的密钥回答应被遗忘，但仍出现在工作记忆中\")\n\t\t}\n\t}\n}",
+    "start_line": 130,
+    "end_line": 164,
+    "has_docstring": true,
+    "docstring": "// 对应文章核心场景：Session A 塞入 6 条闲聊后，第一轮查到的密钥被 Working Memory 截断丢弃。",
+    "parameters": [
+      "t T"
+    ],
+    "node_type": "function",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "function TestWorkingMemoryForgetting",
+    "component_id": "internal/engine/session_test.go::TestWorkingMemoryForgetting",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session_test.go::TestSessionConcurrentSafety": {
+    "id": "internal/engine/session_test.go::TestSessionConcurrentSafety",
+    "name": "TestSessionConcurrentSafety",
+    "component_type": "function",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session_test.go",
+    "relative_path": "internal/engine/session_test.go",
+    "depends_on": [
+      "internal/engine/session.go::Session.GetWorkingMemory",
+      "internal/engine/session.go::NewSession",
+      "internal/engine/session.go::Session.Append"
+    ],
+    "source_code": "func TestSessionConcurrentSafety(t *testing.T) {\n\ts := NewSession(\"concurrent-test\", \"/tmp\")\n\tvar wg sync.WaitGroup\n\n\t// 10 个 goroutine 同时追加消息\n\tfor i := 0; i < 10; i++ {\n\t\twg.Add(1)\n\t\tgo func(idx int) {\n\t\t\tdefer wg.Done()\n\t\t\ts.Append(schema.Message{Role: schema.RoleUser, Content: \"concurrent-msg\"})\n\t\t}(i)\n\t}\n\n\t// 同时 10 个 goroutine 读取工作记忆\n\tfor i := 0; i < 10; i++ {\n\t\twg.Add(1)\n\t\tgo func() {\n\t\t\tdefer wg.Done()\n\t\t\t_ = s.GetWorkingMemory(5)\n\t\t}()\n\t}\n\n\twg.Wait()\n\n\t// 最终应有 10 条消息\n\tmem := s.GetWorkingMemory(0) // limit=0 不截断\n\tif len(mem) != 10 {\n\t\tt.Errorf(\"期望 10 条，实际 %d 条\", len(mem))\n\t}\n}",
+    "start_line": 167,
+    "end_line": 196,
+    "has_docstring": true,
+    "docstring": "// TestSessionConcurrentSafety 验证：多 goroutine 并发读写 Session 不产生 Data Race",
+    "parameters": [
+      "t T"
+    ],
+    "node_type": "function",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "function TestSessionConcurrentSafety",
+    "component_id": "internal/engine/session_test.go::TestSessionConcurrentSafety",
+    "language": null,
+    "qualified_name": null
+  },
+  "internal/engine/session_test.go::TestSessionManagerGetOrCreate": {
+    "id": "internal/engine/session_test.go::TestSessionManagerGetOrCreate",
+    "name": "TestSessionManagerGetOrCreate",
+    "component_type": "function",
+    "file_path": "/Users/kirito/repos/go-my-harness/internal/engine/session_test.go",
+    "relative_path": "internal/engine/session_test.go",
+    "depends_on": [
+      "internal/engine/session.go::SessionManager.GetOrCreate",
+      "internal/engine/session.go::SessionManager"
+    ],
+    "source_code": "func TestSessionManagerGetOrCreate(t *testing.T) {\n\tmgr := &SessionManager{sessions: make(map[string]*Session)}\n\n\tsess1 := mgr.GetOrCreate(\"chat-001\", \"/tmp/a\")\n\tsess2 := mgr.GetOrCreate(\"chat-001\", \"/tmp/a\")\n\tif sess1 != sess2 {\n\t\tt.Fatal(\"同一 ID 应返回同一 Session 实例\")\n\t}\n\n\tsess3 := mgr.GetOrCreate(\"chat-002\", \"/tmp/b\")\n\tif sess1 == sess3 {\n\t\tt.Fatal(\"不同 ID 应返回不同 Session 实例\")\n\t}\n}",
+    "start_line": 199,
+    "end_line": 212,
+    "has_docstring": true,
+    "docstring": "// TestSessionManagerGetOrCreate 验证：同一 ID 返回同一 Session 实例",
+    "parameters": [
+      "t T"
+    ],
+    "node_type": "function",
+    "base_classes": null,
+    "class_name": null,
+    "display_name": "function TestSessionManagerGetOrCreate",
+    "component_id": "internal/engine/session_test.go::TestSessionManagerGetOrCreate",
     "language": null,
     "qualified_name": null
   },
@@ -501,9 +829,9 @@
     "depends_on": [
       "internal/engine/loop.go::AgentEngine"
     ],
-    "source_code": "type FeishuBot struct {\n\tclient      *lark.Client\n\tappID       string\n\tappSecret   string\n\tencryptKey  string\n\tverifyToken string\n\tengine      *engine.AgentEngine // 持有核心引擎引用\n}",
-    "start_line": 22,
-    "end_line": 29,
+    "source_code": "type FeishuBot struct {\n\tclient      *lark.Client\n\tappID       string\n\tappSecret   string\n\tencryptKey  string\n\tverifyToken string\n\tengine      *engine.AgentEngine // 持有核心引擎引用\n\tworkDir     string               // 工作区物理路径，用于创建 Session\n}",
+    "start_line": 23,
+    "end_line": 31,
     "has_docstring": true,
     "docstring": "// FeishuBot 封装了飞书机器人的配置与核心业务流",
     "parameters": null,
@@ -524,14 +852,15 @@
     "depends_on": [
       "internal/feishu/bot.go::FeishuBot"
     ],
-    "source_code": "func NewFeishuBot(eng *engine.AgentEngine, cfg *provider.FeishuConfig) *FeishuBot {\n\tif cfg.AppID == \"\" || cfg.AppSecret == \"\" {\n\t\tlog.Fatal(\"请在 config.json 中配置 feishu.app_id 和 feishu.app_secret\")\n\t}\n\n\t// 实例化飞书官方客户端\n\tclient := lark.NewClient(cfg.AppID, cfg.AppSecret)\n\n\treturn &FeishuBot{\n\t\tclient:      client,\n\t\tappID:       cfg.AppID,\n\t\tappSecret:   cfg.AppSecret,\n\t\tencryptKey:  cfg.EncryptKey,\n\t\tverifyToken: cfg.VerifyToken,\n\t\tengine:      eng,\n\t}\n}",
-    "start_line": 31,
-    "end_line": 47,
+    "source_code": "func NewFeishuBot(eng *engine.AgentEngine, cfg *provider.FeishuConfig, workDir string) *FeishuBot {\n\tif cfg.AppID == \"\" || cfg.AppSecret == \"\" {\n\t\tlog.Fatal(\"请在 config.json 中配置 feishu.app_id 和 feishu.app_secret\")\n\t}\n\n\t// 实例化飞书官方客户端\n\tclient := lark.NewClient(cfg.AppID, cfg.AppSecret)\n\n\treturn &FeishuBot{\n\t\tclient:      client,\n\t\tappID:       cfg.AppID,\n\t\tappSecret:   cfg.AppSecret,\n\t\tencryptKey:  cfg.EncryptKey,\n\t\tverifyToken: cfg.VerifyToken,\n\t\tengine:      eng,\n\t\tworkDir:     workDir,\n\t}\n}",
+    "start_line": 33,
+    "end_line": 50,
     "has_docstring": false,
     "docstring": "",
     "parameters": [
       "eng AgentEngine",
-      "cfg FeishuConfig"
+      "cfg FeishuConfig",
+      "workDir string"
     ],
     "node_type": "function",
     "base_classes": null,
@@ -551,8 +880,8 @@
       "internal/feishu/bot.go::FeishuBot.createEventDispatcher"
     ],
     "source_code": "func (b *FeishuBot) StartWebSocket(ctx context.Context) error {\n\tlog.Println(\"🔌 正在启动 WebSocket 长连接模式...\")\n\n\t// 创建事件处理器（长连接模式下 verifyToken 和 encryptKey 可以为空）\n\teventHandler := b.createEventDispatcher(\"\", \"\")\n\n\t// 创建 WebSocket 客户端\n\twsClient := ws.NewClient(\n\t\tb.appID,\n\t\tb.appSecret,\n\t\tws.WithEventHandler(eventHandler),\n\t\tws.WithLogLevel(larkcore.LogLevelInfo),\n\t\tws.WithAutoReconnect(true), // 自动重连\n\t)\n\n\tlog.Println(\"✅ WebSocket 客户端已创建，正在连接飞书服务器...\")\n\n\t// 启动长连接（阻塞式调用，会一直运行直到连接断开或 context 取消）\n\treturn wsClient.Start(ctx)\n}",
-    "start_line": 51,
-    "end_line": 70,
+    "start_line": 54,
+    "end_line": 73,
     "has_docstring": true,
     "docstring": "// 优势：无需公网 IP、无需配置回调 URL、自动重连、部署简单",
     "parameters": [
@@ -576,8 +905,8 @@
       "internal/feishu/bot.go::FeishuBot.createEventDispatcher"
     ],
     "source_code": "func (b *FeishuBot) GetEventDispatcher() *dispatcher.EventDispatcher {\n\treturn b.createEventDispatcher(b.verifyToken, b.encryptKey)\n}",
-    "start_line": 74,
-    "end_line": 76,
+    "start_line": 77,
+    "end_line": 79,
     "has_docstring": true,
     "docstring": "// 注意：HTTP 回调方式需要公网 IP 和配置回调 URL，推荐使用 StartWebSocket 方式",
     "parameters": null,
@@ -599,8 +928,8 @@
       "internal/feishu/bot.go::FeishuBot.handleAgentRun"
     ],
     "source_code": "func (b *FeishuBot) createEventDispatcher(verifyToken, encryptKey string) *dispatcher.EventDispatcher {\n\t// 使用官方 SDK 构建调度器，监听 \"接收消息\" 事件\n\thandler := dispatcher.NewEventDispatcher(verifyToken, encryptKey).\n\t\tOnP2MessageReceiveV1(func(ctx context.Context, event *larkim.P2MessageReceiveV1) error {\n\t\t\t// 由于飞书消息体是 JSON，我们需要粗略地提取其中的文本内容。\n\t\t\t// 这里简单处理：去掉开头结尾的特殊转义字符和引用的机器人名字。\n\t\t\tcontentStr := *event.Event.Message.Content\n\t\t\tcontentStr = strings.TrimPrefix(contentStr, `{\"text\":\"`)\n\t\t\tcontentStr = strings.TrimSuffix(contentStr, `\"}`)\n\n\t\t\tchatId := *event.Event.Message.ChatId\n\t\t\tlog.Printf(\"[Feishu] 收到会话 %s 消息: %s\\n\", chatId, contentStr)\n\n\t\t\t// 【驾驭并发】：收到消息后，绝不能阻塞回调。\n\t\t\t// 我们要为每个请求开启一个独立的 Goroutine 跑 Agent 任务！\n\t\t\tgo b.handleAgentRun(chatId, contentStr)\n\n\t\t\treturn nil\n\t\t}).\n\t\tOnP2MessageReadV1(func(ctx context.Context, event *larkim.P2MessageReadV1) error {\n\t\t\t// 消息已读事件，静默忽略（避免日志干扰）\n\t\t\treturn nil\n\t\t})\n\n\treturn handler\n}",
-    "start_line": 79,
-    "end_line": 104,
+    "start_line": 82,
+    "end_line": 107,
     "has_docstring": true,
     "docstring": "// createEventDispatcher 创建事件调度器（HTTP 和 WebSocket 共用）",
     "parameters": [
@@ -622,13 +951,15 @@
     "file_path": "/Users/kirito/repos/go-my-harness/internal/feishu/bot.go",
     "relative_path": "internal/feishu/bot.go",
     "depends_on": [
+      "internal/engine/session.go::SessionManager.GetOrCreate",
       "internal/feishu/bot.go::FeishuReporter",
       "internal/feishu/bot.go::FeishuReporter.sendMsg",
+      "internal/engine/session.go::Session.Append",
       "internal/engine/loop.go::AgentEngine.Run"
     ],
-    "source_code": "func (b *FeishuBot) handleAgentRun(chatId string, prompt string) {\n\t// 为当前聊天窗口实例化一个专属的 Reporter\n\treporter := &FeishuReporter{\n\t\tclient: b.client,\n\t\tchatId: chatId,\n\t}\n\n\t// 启动引擎！\n\terr := b.engine.Run(context.Background(), prompt, reporter)\n\tif err != nil {\n\t\treporter.sendMsg(fmt.Sprintf(\"❌ Agent 运行崩溃: %v\", err))\n\t}\n}",
-    "start_line": 107,
-    "end_line": 119,
+    "source_code": "func (b *FeishuBot) handleAgentRun(chatId string, prompt string) {\n\t// 为当前聊天窗口实例化一个专属的 Reporter\n\treporter := &FeishuReporter{\n\t\tclient: b.client,\n\t\tchatId: chatId,\n\t}\n\n\t// 【Session 物理隔离】：用飞书 ChatID 作为 SessionID，\n\t// 不同群聊的消息各自进入独立的 Session，互不干扰\n\tsession := engine.GlobalSessionMgr.GetOrCreate(chatId, b.workDir)\n\tsession.Append(schema.Message{Role: schema.RoleUser, Content: prompt})\n\n\t// 启动引擎！\n\terr := b.engine.Run(context.Background(), session, reporter)\n\tif err != nil {\n\t\treporter.sendMsg(fmt.Sprintf(\"❌ Agent 运行崩溃: %v\", err))\n\t}\n}",
+    "start_line": 110,
+    "end_line": 127,
     "has_docstring": true,
     "docstring": "// handleAgentRun 是连接飞书与底层引擎的桥梁",
     "parameters": [
@@ -651,8 +982,8 @@
     "relative_path": "internal/feishu/bot.go",
     "depends_on": [],
     "source_code": "type FeishuReporter struct {\n\tclient *lark.Client\n\tchatId string\n}",
-    "start_line": 124,
-    "end_line": 127,
+    "start_line": 132,
+    "end_line": 135,
     "has_docstring": true,
     "docstring": "// ==========================================",
     "parameters": null,
@@ -674,8 +1005,8 @@
       "internal/context/composer.go::PromptComposer.Build"
     ],
     "source_code": "func (r *FeishuReporter) sendMsg(text string) {\n\t// 构建文本消息内容\n\ttextContent := map[string]string{\n\t\t\"text\": text,\n\t}\n\tcontentBytes, _ := json.Marshal(textContent)\n\tcontentStr := string(contentBytes)\n\n\tmsgReq := larkim.NewCreateMessageReqBuilder().\n\t\tReceiveIdType(larkim.CreateMessageV1ReceiveIDTypeChatId).\n\t\tBody(larkim.NewCreateMessageReqBodyBuilder().\n\t\t\tReceiveId(r.chatId).\n\t\t\tMsgType(larkim.MsgTypeText).\n\t\t\tContent(contentStr).\n\t\t\tBuild()).\n\t\tBuild()\n\n\t_, _ = r.client.Im.Message.Create(context.Background(), msgReq)\n}",
-    "start_line": 130,
-    "end_line": 148,
+    "start_line": 138,
+    "end_line": 156,
     "has_docstring": true,
     "docstring": "// sendMsg 封装了调用飞书 OpenAPI 发送卡片/文本的操作",
     "parameters": [
@@ -699,8 +1030,8 @@
       "internal/feishu/bot.go::FeishuReporter.sendMsg"
     ],
     "source_code": "func (r *FeishuReporter) OnThinking(ctx context.Context) {\n\t// 仅发一个轻量级提示，避免飞书刷屏\n\tr.sendMsg(\"🤔 模型正在慢思考 (Thinking)...\")\n}",
-    "start_line": 150,
-    "end_line": 153,
+    "start_line": 158,
+    "end_line": 161,
     "has_docstring": false,
     "docstring": "",
     "parameters": [
@@ -724,8 +1055,8 @@
       "internal/feishu/bot.go::FeishuReporter.sendMsg"
     ],
     "source_code": "func (r *FeishuReporter) OnToolCall(ctx context.Context, toolName string, args string) {\n\tr.sendMsg(fmt.Sprintf(\"🛠️ **正在执行工具**：`%s`\\n参数：`%s`\", toolName, args))\n}",
-    "start_line": 155,
-    "end_line": 157,
+    "start_line": 163,
+    "end_line": 165,
     "has_docstring": false,
     "docstring": "",
     "parameters": [
@@ -751,8 +1082,8 @@
       "internal/feishu/bot.go::FeishuReporter.sendMsg"
     ],
     "source_code": "func (r *FeishuReporter) OnToolResult(ctx context.Context, toolName string, result string, isError bool) {\n\tif isError {\n\t\tr.sendMsg(fmt.Sprintf(\"⚠️ **执行报错** (%s)：\\n%s\", toolName, result))\n\t} else {\n\t\t// 成功时仅汇报成功，不刷全量日志\n\t\tr.sendMsg(fmt.Sprintf(\"✅ **执行成功** (%s)\", toolName))\n\t}\n}",
-    "start_line": 159,
-    "end_line": 166,
+    "start_line": 167,
+    "end_line": 174,
     "has_docstring": false,
     "docstring": "",
     "parameters": [
@@ -779,8 +1110,8 @@
       "internal/feishu/bot.go::FeishuReporter.sendMsg"
     ],
     "source_code": "func (r *FeishuReporter) OnMessage(ctx context.Context, content string) {\n\t// 将模型最终的纯文本回答发给用户\n\tr.sendMsg(content)\n}",
-    "start_line": 168,
-    "end_line": 171,
+    "start_line": 176,
+    "end_line": 179,
     "has_docstring": false,
     "docstring": "",
     "parameters": [
@@ -1927,72 +2258,6 @@
     "class_name": null,
     "display_name": "function main",
     "component_id": "server.go::main",
-    "language": null,
-    "qualified_name": null
-  },
-  "workspace/ping.go::Response": {
-    "id": "workspace/ping.go::Response",
-    "name": "Response",
-    "component_type": "struct",
-    "file_path": "/Users/kirito/repos/go-my-harness/workspace/ping.go",
-    "relative_path": "workspace/ping.go",
-    "depends_on": [],
-    "source_code": "type Response struct {\n\tCode    int    `json:\"code\"`\n\tMessage string `json:\"message\"`\n}",
-    "start_line": 8,
-    "end_line": 11,
-    "has_docstring": false,
-    "docstring": "",
-    "parameters": null,
-    "node_type": "struct",
-    "base_classes": null,
-    "class_name": null,
-    "display_name": "struct Response",
-    "component_id": "workspace/ping.go::Response",
-    "language": null,
-    "qualified_name": null
-  },
-  "workspace/ping.go::pingHandler": {
-    "id": "workspace/ping.go::pingHandler",
-    "name": "pingHandler",
-    "component_type": "function",
-    "file_path": "/Users/kirito/repos/go-my-harness/workspace/ping.go",
-    "relative_path": "workspace/ping.go",
-    "depends_on": [],
-    "source_code": "func pingHandler(w http.ResponseWriter, r *http.Request) {\n\tw.Header().Set(\"Content-Type\", \"application/json\")\n\tresp := Response{\n\t\tCode:    0,\n\t\tMessage: \"pong\",\n\t}\n\tjson.NewEncoder(w).Encode(resp)\n}",
-    "start_line": 13,
-    "end_line": 20,
-    "has_docstring": false,
-    "docstring": "",
-    "parameters": [
-      "w ResponseWriter",
-      "r Request"
-    ],
-    "node_type": "function",
-    "base_classes": null,
-    "class_name": null,
-    "display_name": "function pingHandler",
-    "component_id": "workspace/ping.go::pingHandler",
-    "language": null,
-    "qualified_name": null
-  },
-  "workspace/ping.go::main": {
-    "id": "workspace/ping.go::main",
-    "name": "main",
-    "component_type": "function",
-    "file_path": "/Users/kirito/repos/go-my-harness/workspace/ping.go",
-    "relative_path": "workspace/ping.go",
-    "depends_on": [],
-    "source_code": "func main() {\n\thttp.HandleFunc(\"/ping\", pingHandler)\n\thttp.ListenAndServe(\":8080\", nil)\n}",
-    "start_line": 22,
-    "end_line": 25,
-    "has_docstring": false,
-    "docstring": "",
-    "parameters": null,
-    "node_type": "function",
-    "base_classes": null,
-    "class_name": null,
-    "display_name": "function main",
-    "component_id": "workspace/ping.go::main",
     "language": null,
     "qualified_name": null
   }
