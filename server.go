@@ -1,4 +1,3 @@
-cat << 'EOF' > server.go
 package main
 
 import "fmt"
