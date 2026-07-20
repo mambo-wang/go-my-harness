@@ -1,0 +1,125 @@
+{
+  "LLM提供者": {
+    "children": {},
+    "components": [
+      "internal\\provider\\claude.go::MiniMaxProvider",
+      "internal\\provider\\claude.go::MiniMaxProvider.Generate",
+      "internal\\provider\\claude.go::NewAnthropicProvider",
+      "internal\\provider\\config.go::AppConfig",
+      "internal\\provider\\config.go::AppConfig.GetModelConfig",
+      "internal\\provider\\config.go::FeishuConfig",
+      "internal\\provider\\config.go::LoadConfig",
+      "internal\\provider\\config.go::ModelConfig",
+      "internal\\provider\\interface.go::LLMProvider",
+      "internal\\provider\\openpi.go::NewOpenAIProvider",
+      "internal\\provider\\openpi.go::OpenAIProvider",
+      "internal\\provider\\openpi.go::OpenAIProvider.Generate"
+    ]
+  },
+  "上下文管理": {
+    "children": {},
+    "components": [
+      "internal\\context\\compactor.go::Compactor",
+      "internal\\context\\compactor.go::Compactor.Compact",
+      "internal\\context\\compactor.go::Compactor.estimateLength",
+      "internal\\context\\compactor.go::NewCompactor",
+      "internal\\context\\composer.go::NewPromptComposer",
+      "internal\\context\\composer.go::PromptComposer",
+      "internal\\context\\composer.go::PromptComposer.Build",
+      "internal\\context\\skill.go::NewSkillLoader",
+      "internal\\context\\skill.go::Skill",
+      "internal\\context\\skill.go::SkillLoader",
+      "internal\\context\\skill.go::SkillLoader.LoadAll",
+      "internal\\context\\skill.go::parseSkillMD"
+    ]
+  },
+  "工具系统": {
+    "children": {},
+    "components": [
+      "internal\\tools\\bash.go::BashTool",
+      "internal\\tools\\bash.go::BashTool.Definition",
+      "internal\\tools\\bash.go::BashTool.Execute",
+      "internal\\tools\\bash.go::BashTool.Name",
+      "internal\\tools\\bash.go::NewBashTool",
+      "internal\\tools\\bash.go::bashArgs",
+      "internal\\tools\\edit_file.go::EditFileTool",
+      "internal\\tools\\edit_file.go::EditFileTool.Definition",
+      "internal\\tools\\edit_file.go::EditFileTool.Execute",
+      "internal\\tools\\edit_file.go::EditFileTool.Name",
+      "internal\\tools\\edit_file.go::NewEditFileTool",
+      "internal\\tools\\edit_file.go::editFileArgs",
+      "internal\\tools\\edit_file.go::fuzzyReplace",
+      "internal\\tools\\edit_file.go::lineByLineReplace",
+      "internal\\tools\\read_file.go::NewReadFileTool",
+      "internal\\tools\\read_file.go::ReadFileTool",
+      "internal\\tools\\read_file.go::ReadFileTool.Definition",
+      "internal\\tools\\read_file.go::ReadFileTool.Execute",
+      "internal\\tools\\read_file.go::ReadFileTool.Name",
+      "internal\\tools\\read_file.go::readFileArgs",
+      "internal\\tools\\registry.go::BaseTool",
+      "internal\\tools\\registry.go::NewRegistry",
+      "internal\\tools\\registry.go::Registry",
+      "internal\\tools\\registry.go::registryImpl",
+      "internal\\tools\\registry.go::registryImpl.Execute",
+      "internal\\tools\\registry.go::registryImpl.GetAvailableTools",
+      "internal\\tools\\registry.go::registryImpl.Register",
+      "internal\\tools\\write_file.go::NewWriteFileTool",
+      "internal\\tools\\write_file.go::WriteFileTool",
+      "internal\\tools\\write_file.go::WriteFileTool.Definition",
+      "internal\\tools\\write_file.go::WriteFileTool.Execute",
+      "internal\\tools\\write_file.go::WriteFileTool.Name",
+      "internal\\tools\\write_file.go::writeFileArgs"
+    ]
+  },
+  "引擎核心": {
+    "children": {},
+    "components": [
+      "internal\\engine\\loop.go::AgentEngine",
+      "internal\\engine\\loop.go::AgentEngine.Run",
+      "internal\\engine\\loop.go::NewAgentEngine",
+      "internal\\engine\\reporter.go::Reporter",
+      "internal\\engine\\session.go::NewSession",
+      "internal\\engine\\session.go::Session",
+      "internal\\engine\\session.go::Session.Append",
+      "internal\\engine\\session.go::Session.GetWorkingMemory",
+      "internal\\engine\\session.go::SessionManager",
+      "internal\\engine\\session.go::SessionManager.GetOrCreate",
+      "internal\\engine\\terminal_repoter.go::NewTerminalReporter",
+      "internal\\engine\\terminal_repoter.go::TerminalReporter",
+      "internal\\engine\\terminal_repoter.go::TerminalReporter.OnMessage",
+      "internal\\engine\\terminal_repoter.go::TerminalReporter.OnThinking",
+      "internal\\engine\\terminal_repoter.go::TerminalReporter.OnToolCall",
+      "internal\\engine\\terminal_repoter.go::TerminalReporter.OnToolResult"
+    ]
+  },
+  "应用入口": {
+    "children": {},
+    "components": [
+      "cmd\\claw\\main.go::generateMockLog",
+      "cmd\\claw\\main.go::main",
+      "helloworld.go::main",
+      "server.go::main",
+      "internal\\schema\\message.go::Message",
+      "internal\\schema\\message.go::ToolCall",
+      "internal\\schema\\message.go::ToolDefinition",
+      "internal\\schema\\message.go::ToolResult"
+    ]
+  },
+  "飞书集成": {
+    "children": {},
+    "components": [
+      "internal\\feishu\\bot.go::FeishuBot",
+      "internal\\feishu\\bot.go::FeishuBot.GetEventDispatcher",
+      "internal\\feishu\\bot.go::FeishuBot.StartWebSocket",
+      "internal\\feishu\\bot.go::FeishuBot.createEventDispatcher",
+      "internal\\feishu\\bot.go::FeishuBot.handleAgentRun",
+      "internal\\feishu\\bot.go::FeishuReporter",
+      "internal\\feishu\\bot.go::FeishuReporter.OnMessage",
+      "internal\\feishu\\bot.go::FeishuReporter.OnThinking",
+      "internal\\feishu\\bot.go::FeishuReporter.OnToolCall",
+      "internal\\feishu\\bot.go::FeishuReporter.OnToolResult",
+      "internal\\feishu\\bot.go::FeishuReporter.sendMsg",
+      "internal\\feishu\\bot.go::NewFeishuBot"
+    ]
+  }
+}

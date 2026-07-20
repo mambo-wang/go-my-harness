@@ -1,0 +1,20 @@
+{
+  "sources": {
+    "go-my-harness-readme": {
+      "path": "raw\\sources\\go-my-harness-readme.md",
+      "original_path": "D:\\repos\\go-my-harness\\README.md",
+      "source_type": "readme",
+      "description": "go-my-harness 项目自述文件，包含项目介绍和使用说明",
+      "version": "",
+      "imported_at": "2026-07-20T12:26:12.751962",
+      "related_pages": [
+        "wiki/modules/应用入口.md"
+      ],
+      "status": "retracted",
+      "content_hash": "sha256:ec57fc380dfbf2b61bda07e626cda910c9dbb90375cd3bb6363b9a791b3295ad",
+      "retracted_at": "2026-07-20T12:26:37.789890",
+      "retract_mode": "flag_stale"
+    }
+  },
+  "version": 1
+}

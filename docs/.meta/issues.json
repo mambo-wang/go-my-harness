@@ -1,0 +1,16 @@
+{
+  "issues": {
+    "8fc1037d": {
+      "id": "8fc1037d",
+      "issue_type": "missing_aliases",
+      "page_path": "wiki/overview.md",
+      "description": "测试标记：overview.md 缺少 aliases frontmatter 字段",
+      "severity": "info",
+      "created_at": "2026-07-20T12:25:59.889849",
+      "updated_at": "2026-07-20T12:25:59.889849",
+      "status": "open",
+      "occurrences": 1
+    }
+  },
+  "version": 1
+}

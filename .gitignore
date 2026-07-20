@@ -1,5 +1,7 @@
-# CodeBuddy 工具配置与工作记忆（不纳入版本控制）
-.codebuddy/
+# Tool caches (auto-generated, can be large)
+.codewiki/
+.codebase-memory/
+.codegraph/
 
-# 生成的临时文件
-*.exe
+# Temporary files
+docs/temp/
