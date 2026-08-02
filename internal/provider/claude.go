@@ -44,11 +44,15 @@ func (p *MiniMaxProvider) Generate(ctx context.Context, msgs []schema.Message, a
                     anthropic.NewTextBlock(msg.Content),
                 ))
             }
-        case schema.RoleAssistant:
-            var blocks []anthropic.ContentBlockParamUnion
-            if msg.Content != "" {
-                blocks = append(blocks, anthropic.NewTextBlock(msg.Content))
-            }
+		case schema.RoleAssistant:
+			var blocks []anthropic.ContentBlockParamUnion
+			if msg.Content != "" {
+				blocks = append(blocks, anthropic.NewTextBlock(msg.Content))
+			} else if len(msg.ToolCalls) > 0 {
+				// 【重要加固】携带 tool_calls 但 content 为空时，仍需补一个空文本块，
+				// 否则 Anthropic 端点可能拒绝缺乏内容的 assistant 消息。
+				blocks = append(blocks, anthropic.NewTextBlock(""))
+			}
 
             // 将历史工具调用转回 Claude 特有的 ToolUseBlockParam
             for _, tc := range msg.ToolCalls {

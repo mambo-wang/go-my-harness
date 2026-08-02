@@ -19,18 +19,20 @@ type AgentEngine struct {
 	provider       provider.LLMProvider // LLM 提供者
 	registry       tools.Registry       // 工具注册表
 	EnableThinking bool                 // 慢思考模式开关
+	PlanMode       bool                 // 计划模式开关：开启后注入文件系统记忆范式 (PLAN.md/TODO.md)
 	composer       *ctxpkg.PromptComposer
 	compactor      *ctxpkg.Compactor // 上下文压缩器：防止发往大模型的上下文 OOM
 }
 
 // NewAgentEngine 创建引擎实例。
 // 注意：不再接收 workDir 参数——工作区由每次 Run 时传入的 Session 决定。
-func NewAgentEngine(p provider.LLMProvider, r tools.Registry, enableThinking bool) *AgentEngine {
+func NewAgentEngine(p provider.LLMProvider, r tools.Registry, enableThinking bool, planMode bool) *AgentEngine {
 	return &AgentEngine{
 		provider:       p,
 		registry:       r,
 		EnableThinking: enableThinking,
-		composer:       ctxpkg.NewPromptComposer("."),
+		PlanMode:       planMode,
+		composer:       ctxpkg.NewPromptComposer(".", planMode),
 		// 水位线 3000 字符、Working Memory 保护区 6 条消息
 		compactor: ctxpkg.NewCompactor(3000, 6),
 	}
@@ -39,10 +41,10 @@ func NewAgentEngine(p provider.LLMProvider, r tools.Registry, enableThinking boo
 // Run 以传入的 Session 作为上下文承载体，执行 Agent 循环。
 // 引擎不再"用完即毁"，而是从 Session 中恢复记忆，执行完毕后将新产生的消息追加回 Session。
 func (e *AgentEngine) Run(ctx context.Context, session *Session, reporter Reporter) error {
-	log.Printf("[Engine] 唤醒会话 [%s]，锁定工作区: %s\n", session.ID, session.WorkDir)
+	log.Printf("[Engine] 唤醒会话 [%s]，锁定工作区: %s (PlanMode: %v)\n", session.ID, session.WorkDir, e.PlanMode)
 
-	// 根据 Session 绑定的工作区动态组装 System Prompt
-	e.composer = ctxpkg.NewPromptComposer(session.WorkDir)
+	// 根据 Session 绑定的工作区动态组装 System Prompt (PlanMode 由引擎开关决定)
+	e.composer = ctxpkg.NewPromptComposer(session.WorkDir, e.PlanMode)
 	systemMsg := e.composer.Build()
 
 	for {

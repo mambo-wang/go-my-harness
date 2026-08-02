@@ -43,14 +43,22 @@ func (p *OpenAIProvider) Generate(ctx context.Context, msgs []schema.Message, av
                 openaiMsgs = append(openaiMsgs, openai.UserMessage(msg.Content))
             }
 
-        case schema.RoleAssistant:
-            astParam := openai.ChatCompletionAssistantMessageParam{}
+		case schema.RoleAssistant:
+			astParam := openai.ChatCompletionAssistantMessageParam{}
 
-            if msg.Content != "" {
-                astParam.Content = openai.ChatCompletionAssistantMessageParamContentUnion{
-                    OfString: openai.String(msg.Content),
-                }
-            }
+			// 【重要加固】当 assistant 携带 tool_calls 时，即使 Content 为空字符串，
+			// 严格的 OpenAI 兼容端点 (如 DeepSeek / Zhipu) 也要求显式传递 "" 字段，
+			// 否则会报 "messages 参数非法" (400 Bad Request)。因此只要带了 toolCalls，
+			// 就必须把 Content 设为可空字符串，而非省略该字段。
+			if msg.Content != "" {
+				astParam.Content = openai.ChatCompletionAssistantMessageParamContentUnion{
+					OfString: openai.String(msg.Content),
+				}
+			} else if len(msg.ToolCalls) > 0 {
+				astParam.Content = openai.ChatCompletionAssistantMessageParamContentUnion{
+					OfString: openai.String(""),
+				}
+			}
 
             // 【重要】如果历史包含 ToolCalls，必须原样放回，以维系大模型的逻辑链
             if len(msg.ToolCalls) > 0 {
