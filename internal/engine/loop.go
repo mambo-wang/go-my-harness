@@ -33,8 +33,8 @@ func NewAgentEngine(p provider.LLMProvider, r tools.Registry, enableThinking boo
 		EnableThinking: enableThinking,
 		PlanMode:       planMode,
 		composer:       ctxpkg.NewPromptComposer(".", planMode),
-		// 水位线 3000 字符、Working Memory 保护区 6 条消息
-		compactor: ctxpkg.NewCompactor(3000, 6),
+		// 水位线 200000 字符、Working Memory 保护区 6 条消息
+		compactor: ctxpkg.NewCompactor(200000, 6),
 	}
 }
 
@@ -111,8 +111,8 @@ func (e *AgentEngine) Run(ctx context.Context, session *Session, reporter Report
 
 				if reporter != nil {
 					displayOutput := result.Output
-					if len(displayOutput) > 200 {
-						displayOutput = displayOutput[:200] + "... (已截断)"
+					if len(displayOutput) > 5000 {
+						displayOutput = displayOutput[:5000] + "... (已截断)"
 					}
 					reporter.OnToolResult(ctx, call.Name, displayOutput, result.IsError)
 				}
